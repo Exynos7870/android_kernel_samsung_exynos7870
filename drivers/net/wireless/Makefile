@@ -77,5 +77,6 @@ obj-$(CONFIG_BRCMFMAC)	+= brcm80211/
 obj-$(CONFIG_BRCMSMAC)	+= brcm80211/
 obj-$(CONFIG_CNSS_SDIO)	+= cnss/cnss_sdio.o
 obj-$(CONFIG_WCNSS_MEM_PRE_ALLOC) += cnss_prealloc.o
+obj-$(CONFIG_CNSS_GENL) += cnss_genl/
 obj-$(CONFIG_CW1200)	+= cw1200/
 obj-$(CONFIG_RSI_91X)	+= rsi/

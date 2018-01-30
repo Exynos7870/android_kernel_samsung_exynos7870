@@ -321,10 +321,13 @@ struct mms_ts_info {
 	unsigned int scrub_id;
 	unsigned int scrub_x;
 	unsigned int scrub_y;
-
+	u8 ito_test[4];
 	u8 check_multi;
 	unsigned int multi_count;
-	unsigned int comm_err_count;
+	unsigned int wet_count;
+	unsigned int dive_count;
+	unsigned int comm_err_count;	
+	bool dt2w_enable;
 };
 
 enum IC_STATUS{

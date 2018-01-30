@@ -1539,6 +1539,29 @@ static ssize_t mms_sys_cmd_list(struct device *dev,
 static DEVICE_ATTR(cmd_list, S_IRUGO, mms_sys_cmd_list, NULL);
 static DEVICE_ATTR(scrub_pos, S_IRUGO, scrub_position_show, NULL);
 
+static ssize_t read_raw_check_show(struct device *dev, 
+					struct device_attribute *devattr, char *buf)
+{
+	struct mms_ts_info *info = dev_get_drvdata(dev);
+	
+	input_info(true, &info->client->dev, "%s\n", __func__);
+	return snprintf(buf, PAGE_SIZE, "OK");
+}
+
+static ssize_t read_ito_check_show(struct device *dev, 
+					struct device_attribute *devattr, char *buf)
+{
+	struct mms_ts_info *info = dev_get_drvdata(dev);
+
+	input_info(true, &info->client->dev, "%s: %02X%02X%02X%02X\n", __func__,
+				info->ito_test[0], info->ito_test[1],
+				info->ito_test[2], info->ito_test[3]);
+
+	return snprintf(buf, PAGE_SIZE, "%02X%02X%02X%02X",
+					info->ito_test[0], info->ito_test[1],
+					info->ito_test[2], info->ito_test[3]);
+}
+
 static ssize_t read_multi_count_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
@@ -1547,6 +1570,19 @@ static ssize_t read_multi_count_show(struct device *dev,
 	tsp_debug_info(true, &info->client->dev, "%s: %d\n", __func__, info->multi_count);
 
 	return snprintf(buf, PAGE_SIZE, "%d", info->multi_count);
+}
+
+static ssize_t read_wet_mode_show(struct device *dev, 
+					struct device_attribute *devattr, char *buf)
+{
+	struct mms_ts_info *info = dev_get_drvdata(dev);
+	char buffer[256]= { 0 };
+
+	input_info(true, &info->client->dev, "%s: %d\n", __func__, info->wet_count);
+	snprintf(buffer, sizeof(buffer), "%d", info->wet_count);
+	info->wet_count = 0;
+
+	return snprintf(buf, PAGE_SIZE, "%s\n", buffer);
 }
 
 static ssize_t clear_multi_count_store(struct device *dev,
@@ -1599,8 +1635,59 @@ static ssize_t read_vendor_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "MELFAS");
 }
 
-static DEVICE_ATTR(multi_count, S_IRUGO | S_IWUSR | S_IWGRP, read_multi_count_show, clear_multi_count_store);
-static DEVICE_ATTR(comm_err_count, S_IRUGO | S_IWUSR | S_IWGRP, read_comm_err_count_show, clear_comm_err_count_store);
+static ssize_t mms_sys_dt2w_enable_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct mms_ts_info *info = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", info->dt2w_enable);
+}
+
+static ssize_t mms_sys_dt2w_enable_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t count)
+{
+	struct mms_ts_info *info = dev_get_drvdata(dev);
+	bool enable;
+
+	if (count < 1)
+		return -EINVAL;
+
+	enable = buf[0] == '1';
+
+	if (!info->enabled) {
+		return -EINVAL;
+	}
+
+	if (enable == info->dt2w_enable)
+		return 0;
+
+	mutex_lock(&info->lock);
+	info->cmd_busy = true;
+	mutex_unlock(&info->lock);
+
+	if (enable) {
+		info->lowpower_mode = true;
+		info->lowpower_flag |= MMS_LPM_FLAG_AOD;
+		info->dt2w_enable = true;
+	} else {
+		info->lowpower_flag &= ~MMS_LPM_FLAG_AOD;
+		if (!info->lowpower_flag)
+			info->lowpower_mode = false;
+		info->dt2w_enable = false;
+	}
+
+	mutex_lock(&info->lock);
+	info->cmd_busy = false;
+	mutex_unlock(&info->lock);
+	return 0;
+}
+
+static DEVICE_ATTR(dt2w_enable, 0660, mms_sys_dt2w_enable_show, mms_sys_dt2w_enable_store);
+static DEVICE_ATTR(ito_check, S_IRUGO, read_ito_check_show, NULL);
+static DEVICE_ATTR(raw_check, S_IRUGO, read_raw_check_show, NULL);
+static DEVICE_ATTR(multi_count, S_IRUGO, read_multi_count_show, NULL);
+static DEVICE_ATTR(wet_mode, S_IRUGO, read_wet_mode_show, NULL);
+static DEVICE_ATTR(comm_err_count, S_IRUGO, read_comm_err_count_show, NULL);
 static DEVICE_ATTR(module_id, S_IRUGO, read_module_id_show, NULL);
 static DEVICE_ATTR(vendor, S_IRUGO, read_vendor_show, NULL);
 
@@ -1613,6 +1700,9 @@ static struct attribute *mms_cmd_attr[] = {
 	&dev_attr_cmd_result.attr,
 	&dev_attr_cmd_list.attr,
 	&dev_attr_scrub_pos.attr,
+	&dev_attr_dt2w_enable.attr,
+	&dev_attr_ito_check.attr,
+	&dev_attr_raw_check.attr,
 	&dev_attr_multi_count.attr,
 	&dev_attr_comm_err_count.attr,
 	&dev_attr_module_id.attr,

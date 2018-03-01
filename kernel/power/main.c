@@ -15,6 +15,9 @@
 #include <linux/workqueue.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
+#if defined(CONFIG_SEC_DEBUG) && defined(CONFIG_REGULATOR_S2MPU05)
+#include <linux/mfd/samsung/s2mpu05.h>
+#endif
 
 #include "power.h"
 
@@ -46,7 +49,7 @@ int pm_notifier_call_chain(unsigned long val)
 }
 
 /* If set, devices may be suspended and resumed asynchronously. */
-int pm_async_enabled = 1;
+int pm_async_enabled = 0;
 
 static ssize_t pm_async_show(struct kobject *kobj, struct kobj_attribute *attr,
 			     char *buf)
@@ -65,7 +68,7 @@ static ssize_t pm_async_store(struct kobject *kobj, struct kobj_attribute *attr,
 	if (val > 1)
 		return -EINVAL;
 
-	pm_async_enabled = val;
+	pm_async_enabled = 0;
 	return n;
 }
 
@@ -583,6 +586,69 @@ power_attr(pm_freeze_timeout);
 
 #endif	/* CONFIG_FREEZER*/
 
+#if defined(CONFIG_SEC_DEBUG) && defined(CONFIG_REGULATOR_S2MPU05)
+static int reset_enabled = 0;
+
+static ssize_t reset_enabled_show(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					char *buf)
+{
+	pr_info("%s (%d)\n", __func__, reset_enabled);
+	return sprintf(buf, "%d", reset_enabled);
+}
+
+static ssize_t reset_enabled_store(struct kobject *kobj,
+				       struct kobj_attribute *attr,
+				       const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (kstrtoul(buf, 10, &val))
+		return -EINVAL;
+
+	reset_enabled = !!val;
+	pmic_reset_enabled(reset_enabled);
+
+	pr_info("%s (%d)\n", __func__, reset_enabled);
+	return n;
+}
+
+static struct kobj_attribute reset_enabled_attr = {
+	.attr	= {
+		.name = __stringify(reset_enabled),
+		.mode = 0644,
+	},
+	.show	= reset_enabled_show,
+	.store	= reset_enabled_store,
+};
+#endif
+
+#ifdef CONFIG_SW_SELF_DISCHARGING
+static char selfdischg_usage_str[] =
+	"[START]\n"
+	"/sys/power/cpuhotplug/enable 0\n"
+	"/sys/power/cpufreq_self_discharging 900000\n"
+	"[STOP]\n"
+	"/sys/power/cpufreq_self_discharging 0\n"
+	"/sys/power/cpuhotplug/enable 1\n"
+	"[END]\n";
+
+static ssize_t selfdischg_usage_show(struct kobject *kobj,
+					struct kobj_attribute *attr,
+					char *buf)
+{
+	return sprintf(buf, "%s", selfdischg_usage_str);
+}
+
+static struct kobj_attribute selfdischg_usage_attr = {
+	.attr	= {
+		.name = __stringify(selfdischg_usage),
+		.mode = 0444,
+	},
+	.show	= selfdischg_usage_show,
+};
+#endif
+
 static struct attribute * g[] = {
 	&state_attr.attr,
 #ifdef CONFIG_PM_TRACE
@@ -608,6 +674,12 @@ static struct attribute * g[] = {
 #endif
 #ifdef CONFIG_FREEZER
 	&pm_freeze_timeout_attr.attr,
+#endif
+#if defined(CONFIG_SEC_DEBUG) && defined(CONFIG_REGULATOR_S2MPU05)
+	&reset_enabled_attr.attr,	/* Support 1-key hard reset */
+#endif
+#ifdef CONFIG_SW_SELF_DISCHARGING
+	&selfdischg_usage_attr.attr,
 #endif
 	NULL,
 };

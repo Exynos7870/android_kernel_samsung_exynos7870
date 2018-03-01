@@ -86,6 +86,7 @@ config SND_SOC_ALL_CODECS
 	select SND_SOC_RT5651 if I2C
 	select SND_SOC_RT5670 if I2C
 	select SND_SOC_RT5677 if I2C
+	select SND_SOC_RT5659 if I2C
 	select SND_SOC_SGTL5000 if I2C
 	select SND_SOC_SI476X if MFD_SI476X_CORE
 	select SND_SOC_SIRF_AUDIO_CODEC
@@ -386,6 +387,9 @@ config SND_SOC_CX20442
 	tristate
 	depends on TTY
 
+config SND_SOC_COD3026X
+	tristate
+
 config SND_SOC_JZ4740_CODEC
 	select REGMAP_MMIO
 	tristate
@@ -504,6 +508,9 @@ config SND_SOC_RT5670
 config SND_SOC_RT5677
 	tristate
 
+config SND_SOC_RT5659
+	tristate
+
 #Freescale sgtl5000 codec
 config SND_SOC_SGTL5000
 	tristate "Freescale SGTL5000 CODEC"
@@ -533,6 +540,21 @@ config SND_SOC_SN95031
 
 config SND_SOC_SPDIF
 	tristate "S/PDIF CODEC"
+
+config SND_SOC_EXYNOS_AUDMIXER
+        tristate
+        select REGMAP_MMIO
+        select REGMAP_I2C
+
+config SND_SOC_EXYNOS_AUDMIXER_VER
+	int "Driver version of Exynos Audio Mixer"
+	range 1 2
+	default 2 if SND_SOC_SAMSUNG_UNIVERSAL7870_COD3026X
+	default 1
+	depends on SND_SOC_EXYNOS_AUDMIXER
+	help
+	  Set version 1 for legacy driver
+	  Set version 2 for independent ASoC compliant driver
 
 config SND_SOC_SSM2518
 	tristate
@@ -788,6 +810,15 @@ config SND_SOC_WM9712
 
 config SND_SOC_WM9713
 	tristate
+
+config SND_SOC_DUMMY_CODEC
+	tristate
+
+config SND_SOC_COD30XX_EXT_ANT
+	bool "ISDB-T External antenna"
+	default n
+	help
+	  Support for ISDB-T External antenna.
 
 # Amp
 config SND_SOC_LM4857

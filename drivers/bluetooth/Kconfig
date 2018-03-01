@@ -243,4 +243,25 @@ config BT_WILINK
 	  Say Y here to compile support for Texas Instrument's WiLink7 driver
 	  into the kernel or say M to compile it as module (btwilink).
 
+config BT_QCA9377
+	bool "Enable QCA9377 driver"
+	default n
+	help
+	  Adds QCA9377 RFKILL driver for QCA9377 chipset for exynos54xx.
+	  default is n.
+
+config BT_BCM43XX
+	bool "Enable BCM43xx driver"
+	default n
+	help
+	  Adds BCM43xx RFKILL driver for Broadcom BCM43xx chipset for exynos7870.
+	  default is n.
+
+config FM_LNA
+	bool "Enable FM Radio LNA(Low Noise Amplifier)"
+	default n
+	help
+	  This enables LNA(Low Noise Amplifier) ON for FM radio.      
+	  default is n.
+
 endmenu

@@ -1789,7 +1789,7 @@ check_current:
 		if (gap_start > high_limit)
 			return -ENOMEM;
 		if (gap_end >= low_limit &&
-			gap_end > gap_start && gap_end - gap_start >= length)
+		    gap_end > gap_start && gap_end - gap_start >= length)
 			goto found;
 
 		/* Visit right subtree if it looks promising */
@@ -1893,7 +1893,7 @@ check_current:
 		if (gap_end < low_limit)
 			return -ENOMEM;
 		if (gap_start <= high_limit &&
-			gap_end > gap_start && gap_end - gap_start >= length)
+		    gap_end > gap_start && gap_end - gap_start >= length)
 			goto found;
 
 		/* Visit left subtree if it looks promising */

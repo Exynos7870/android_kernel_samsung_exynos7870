@@ -364,7 +364,7 @@ static int f_midi_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 		struct usb_request *req =
 			midi_alloc_ep_req(midi->out_ep,
 				max_t(unsigned, midi->buflen,
-					bulk_out_desc.wMaxPacketSize));
+					midi_bulk_out_desc.wMaxPacketSize));
 		if (req == NULL)
 			return -ENOMEM;
 

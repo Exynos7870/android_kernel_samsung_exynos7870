@@ -1799,7 +1799,8 @@ void xhci_mem_cleanup(struct xhci_hcd *xhci)
 #if defined(CONFIG_USB_HOST_SAMSUNG_FEATURE)
 	cancel_delayed_work_sync(&xhci->cmd_timer);
 #else
-	del_timer_sync(&xhci->cmd_timer);
+	if (timer_pending(&xhci->cmd_timer))
+		del_timer_sync(&xhci->cmd_timer);
 #endif
 
 	/* Free the Event Ring Segment Table and the actual Event Ring */

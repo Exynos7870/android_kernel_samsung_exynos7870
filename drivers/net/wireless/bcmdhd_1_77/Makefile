@@ -285,21 +285,11 @@ DHDCFLAGS += -DDHD_BLOB_EXISTENCE_CHECK
 # Random mac scan
 DHDCFLAGS += -DSUPPORT_RANDOM_MAC_SCAN
 
-# Android Version Check from Platform source
-CANDIDATE_VERSION_PATH := ./../../build/core ../../../../../../build/core out
-FOUND_VERSION_PATH := $(foreach dir,$(CANDIDATE_VERSION_PATH), $(wildcard $(dir)/version_defaults.mk))
-FOUND_VERSION_PATH := $(word 1, $(FOUND_VERSION_PATH))
-ifeq ($(FOUND_VERSION_PATH),)
-$(warning Not found Android version file. Set None)
-else
-# Extract version string and get major number
-ANDROID_PLATFORM_VERSION := $(shell grep "PLATFORM_VERSION := " $(FOUND_VERSION_PATH) | cut -d "=" -f 2 | cut -d "." -f 1 | sed 's/ //g')
-$(warning Android Platform Version : $(ANDROID_PLATFORM_VERSION))
-# If Android version lower than 7(Nougat) => Use Legacy File path
+# Force the use of Android Nougat+ File path
+ANDROID_PLATFORM_VERSION = 7
 ifeq ($(shell expr $(ANDROID_PLATFORM_VERSION) \< 7),1)
 DHDCFLAGS += -DDHD_LEGACY_FILE_PATH
 $(warning Will be use Legacy file path)
-endif
 endif
 
 ##############################
@@ -1144,7 +1134,7 @@ ifneq ($(CONFIG_MACH_UNIVERSAL5430),)
 DHDCFLAGS += -DDHD_OF_SUPPORT
 endif
 ifneq ($(CONFIG_MACH_UNIVERSAL5422),)
-obj-$(CONFIG_MACH_UNIVERSAL5422) += dhd_custom_exynos.o
+DHDCFLAGS += -DDHD_OF_SUPPORT
 endif
 ifneq ($(CONFIG_ARCH_MSM8994),)
 DHDCFLAGS += -DDHD_OF_SUPPORT
@@ -1205,7 +1195,7 @@ DHDCFLAGS += -include "dhd_sec_feature.h"
 
 #EXTRA_LDFLAGS += --strip-debug
 
-EXTRA_CFLAGS += $(DHDCFLAGS) #-DDHD_DEBUG
+EXTRA_CFLAGS += $(DHDCFLAGS) -DDHD_DEBUG
 EXTRA_CFLAGS += -DSRCBASE=\"$(src)\"
 EXTRA_CFLAGS += -I$(src)/include/ -I$(src)/
 EXTRA_CFLAGS += $(call cc-option, -Wunused-but-set-variable)

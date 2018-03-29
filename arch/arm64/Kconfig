@@ -241,6 +241,9 @@ config DTB_J7VELTE
 config DTB_J7XELTE
 	bool "Builds DTB for J7 2016"
 
+config DTB_J5Y17LTE
+	bool "Builds DTB for J5 Pro"
+
 config DTB_J7Y17LTE
 	bool "Builds DTB for J7 Pro"
 

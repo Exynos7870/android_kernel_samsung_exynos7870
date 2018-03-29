@@ -9,6 +9,7 @@ dtb-$(CONFIG_DTB_J7XELTE) += exynos7870-j7xelte_eur_open_00.dtb exynos7870-j7xel
 dtb-$(CONFIG_DTB_J7Y17LTE) += exynos7870-j7y17lte_eur_open_00.dtb exynos7870-j7y17lte_eur_open_01.dtb exynos7870-j7y17lte_eur_open_02.dtb exynos7870-j7y17lte_eur_open_03.dtb exynos7870-j7y17lte_eur_open_04.dtb exynos7870-j7y17lte_eur_open_05.dtb exynos7870-j7y17lte_eur_open_06.dtb
 dtb-$(CONFIG_DTB_J7VELTE) += exynos7870-j7velte_sea_open_00.dtb exynos7870-j7velte_sea_open_01.dtb exynos7870-j7velte_sea_open_03.dtb
 dtb-$(CONFIG_DTB_A3Y17LTE) += exynos7870-a3y17lte_eur_open_00.dtb exynos7870-a3y17lte_eur_open_01.dtb exynos7870-a3y17lte_eur_open_03.dtb exynos7870-a3y17lte_eur_open_03.dtb
+dtb-$(CONFIG_DTB_J5Y17LTE) += exynos7870-j5y17lte_eur_open_00.dtb exynos7870-j5y17lte_eur_open_01.dtb exynos7870-j5y17lte_eur_open_02.dtb exynos7870-j5y17lte_eur_open_03.dtb exynos7870-j5y17lte_eur_open_05.dtb exynos7870-j5y17lte_eur_open_07.dtb
 
 targets += dtbs
 

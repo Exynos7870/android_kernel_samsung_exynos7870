@@ -3491,6 +3491,34 @@ SYSCALL_DEFINE3(mknod, const char __user *, filename, umode_t, mode, unsigned, d
 	return sys_mknodat(AT_FDCWD, filename, mode, dev);
 }
 
+
+int vfs_mkdir2(struct vfsmount *mnt, struct inode *dir, struct dentry *dentry, umode_t mode)
+{
+        int error = may_create(mnt, dir, dentry);
+        unsigned max_links = dir->i_sb->s_max_links;
+
+        if (error)
+                return error;
+
+        if (!dir->i_op->mkdir)
+                return -EPERM;
+
+        mode &= (S_IRWXUGO|S_ISVTX);
+        error = security_inode_mkdir(dir, dentry, mode);
+        if (error)
+                return error;
+
+        if (max_links && dir->i_nlink >= max_links)
+                return -EMLINK;
+
+        error = dir->i_op->mkdir(dir, dentry, mode);
+        if (!error)
+                fsnotify_mkdir(dir, dentry);
+        return error;
+}
+EXPORT_SYMBOL(vfs_mkdir2);
+
+
 int vfs_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
 {
 	int error = may_create(dir, dentry);

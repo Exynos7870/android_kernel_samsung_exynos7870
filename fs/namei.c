@@ -2484,14 +2484,14 @@ static int may_delete(struct inode *dir, struct dentry *victim, bool isdir)
  *  3. We should have write and exec permissions on dir
  *  4. We can't do it if dir is immutable (done in permission())
  */
-static inline int may_create(struct inode *dir, struct dentry *child)
+static inline int may_create(struct vfsmount *mnt, struct inode *dir, struct dentry *child)
 {
-	audit_inode_child(dir, child, AUDIT_TYPE_CHILD_CREATE);
-	if (child->d_inode)
-		return -EEXIST;
-	if (IS_DEADDIR(dir))
-		return -ENOENT;
-	return inode_permission(dir, MAY_WRITE | MAY_EXEC);
+        audit_inode_child(dir, child, AUDIT_TYPE_CHILD_CREATE);
+        if (child->d_inode)
+                return -EEXIST;
+        if (IS_DEADDIR(dir))
+                return -ENOENT;
+        return inode_permission2(mnt, dir, MAY_WRITE | MAY_EXEC);
 }
 
 /*

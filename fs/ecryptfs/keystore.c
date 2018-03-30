@@ -463,8 +463,7 @@ out:
  * @auth_tok_key: key containing the authentication token
  * @auth_tok: authentication token
  *
- * Returns zero on valid auth tok; -EINVAL if the payload is invalid; or
- * -EKEYREVOKED if the key was revoked before we acquired its semaphore.
+ * Returns zero on valid auth tok; -EINVAL otherwise
  */
 static int
 ecryptfs_verify_auth_tok_from_key(struct key *auth_tok_key,
@@ -473,12 +472,6 @@ ecryptfs_verify_auth_tok_from_key(struct key *auth_tok_key,
 	int rc = 0;
 
 	(*auth_tok) = ecryptfs_get_key_payload_data(auth_tok_key);
-	if (IS_ERR(*auth_tok)) {
-		rc = PTR_ERR(*auth_tok);
-		*auth_tok = NULL;
-		goto out;
-	}
-
 	if (ecryptfs_verify_version((*auth_tok)->version)) {
 		printk(KERN_ERR "Data structure version mismatch. Userspace "
 		       "tools must match eCryptfs kernel module with major "
@@ -1488,12 +1481,6 @@ parse_tag_3_packet(struct ecryptfs_crypt_stat *crypt_stat,
 		crypt_stat->key_size = 24;
 		break;
 	default:
-#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
-	if (crypt_stat->mount_crypt_stat->cipher_code == RFC2440_CIPHER_AES_XTS_256)
-		crypt_stat->key_size =
-			crypt_stat->mount_crypt_stat->global_default_cipher_key_size;
-	else
-#endif
 		crypt_stat->key_size =
 			(*new_auth_tok)->session_key.encrypted_key_size;
 	}
@@ -2322,25 +2309,14 @@ write_tag_3_packet(char *dest, size_t *remaining_bytes,
 	if (crypt_stat->key_size == 0)
 		crypt_stat->key_size =
 			mount_crypt_stat->global_default_cipher_key_size;
-	if (auth_tok->session_key.encrypted_key_size == 0) {
-#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
-		if (crypt_stat->mount_crypt_stat->cipher_code == RFC2440_CIPHER_AES_XTS_256)
-			auth_tok->session_key.encrypted_key_size = crypt_stat->key_size * 2;
-		else
-#endif
+	if (auth_tok->session_key.encrypted_key_size == 0)
 			auth_tok->session_key.encrypted_key_size = crypt_stat->key_size;
-	}
 	if (crypt_stat->key_size == 24
 	    && strcmp("aes", crypt_stat->cipher) == 0) {
 		memset((crypt_stat->key + 24), 0, 8);
 		auth_tok->session_key.encrypted_key_size = 32;
-#if defined(CONFIG_MMC_DW_FMP_ECRYPT_FS) || defined(CONFIG_UFS_FMP_ECRYPT_FS)
-	} else if (mount_crypt_stat->cipher_code == RFC2440_CIPHER_AES_XTS_256) {
-		auth_tok->session_key.encrypted_key_size = crypt_stat->key_size * 2;
-#endif
-	} else {
+	} else
 		auth_tok->session_key.encrypted_key_size = crypt_stat->key_size;
-	}
 	key_rec->enc_key_size =
 		auth_tok->session_key.encrypted_key_size;
 	encrypted_session_key_valid = 0;

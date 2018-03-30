@@ -1712,6 +1712,11 @@ static int sm5703_muic_reg_init(struct sm5703_muic_data *muic_data)
 	if (ret < 0)
 		pr_err("%s: err write ctrl(%d)\n", __func__, ret);
 
+#if !defined(CONFIG_SEC_FACTORY)
+	/*Set USB ID checking mode as one-shot, for rustproof feature*/
+	disable_periodic_adc_scan(muic_data);
+#endif
+
 	return ret;
 }
 

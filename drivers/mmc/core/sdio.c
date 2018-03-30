@@ -1271,12 +1271,14 @@ int mmc_attach_sdio(struct mmc_host *host)
 			goto remove_added;
 	}
 
-	#if defined(CONFIG_BCM4343) || defined(CONFIG_BCM43454) || defined(CONFIG_BCM43455)
+	#if defined(CONFIG_BCM4343) || defined(CONFIG_BCM43454) || \
+		defined(CONFIG_BCM43455) || defined(CONFIG_BCM43456)
 		if(!strcmp("mmc1", mmc_hostname(host))) {
 		printk("%s, Set Nonremovable flag\n",mmc_hostname(host));
 		host->caps |= MMC_CAP_NONREMOVABLE;
 		}
-	#endif /* CONFIG_BCM4343 || CONFIG_BCM43454 || CONFIG_BCM43455 */
+	#endif /* CONFIG_BCM4343 || CONFIG_BCM43454 || \
+		  CONFIG_BCM43455 || CONFIG_BCM43456 */
 
 
 	mmc_claim_host(host);
@@ -1304,7 +1306,8 @@ err:
 
 int sdio_reset_comm(struct mmc_card *card)
 {
-#if defined(CONFIG_BCM4343) || defined(CONFIG_BCM43454) || defined(CONFIG_BCM43455)
+#if defined(CONFIG_BCM4343) || defined(CONFIG_BCM43454) || \
+	defined(CONFIG_BCM43455) || defined(CONFIG_BCM43456)
 	struct mmc_host *host = card->host;
 	u32 ocr;
 	u32 rocr;
@@ -1381,6 +1384,7 @@ err:
 	       mmc_hostname(host), err);
 	mmc_release_host(host);
 	return err;
-#endif /* CONFIG_BCM4343 || CONFIG_BCM43454 || CONFIG_BCM43455 */
+#endif /* CONFIG_BCM4343 || CONFIG_BCM43454 || \
+	  CONFIG_BCM43455 || CONFIG_BCM43456 */
 }
 EXPORT_SYMBOL(sdio_reset_comm);

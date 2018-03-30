@@ -7,6 +7,7 @@ obj-$(CONFIG_CAMERA_CIS_5E6_OBJ) += fimc-is-device-module-5e6.o
 obj-$(CONFIG_CAMERA_CIS_4H5YC_OBJ) += fimc-is-device-module-4h5yc.o
 obj-$(CONFIG_CAMERA_CIS_4H5_OBJ) += fimc-is-device-module-4h5.o
 obj-$(CONFIG_CAMERA_CIS_2P2_OBJ) += fimc-is-device-module-2p2.o
+obj-$(CONFIG_CAMERA_CIS_2P6_OBJ) += fimc-is-device-module-2p6.o
 obj-$(CONFIG_CAMERA_CIS_2P8_OBJ) += fimc-is-device-module-2p8.o
 obj-$(CONFIG_CAMERA_CIS_3P3_OBJ) += fimc-is-device-module-3p3.o
 obj-$(CONFIG_CAMERA_CIS_3P8_OBJ) += fimc-is-device-module-3p8.o

@@ -4001,6 +4001,11 @@ static void sec_bat_cable_work(struct work_struct *work)
 		POWER_SUPPLY_PROP_ONLINE, val);
 	if (battery->status != POWER_SUPPLY_STATUS_DISCHARGING)
 		sec_bat_check_input_voltage(battery);
+
+	/* update charging current */
+	psy_do_property(battery->pdata->charger_name, get,
+		POWER_SUPPLY_PROP_CURRENT_NOW, val);
+	battery->charging_current = val.intval;
 	/* set charging current */
 	sec_bat_set_charging_current(battery);
 
@@ -6322,6 +6327,7 @@ static int sec_bat_cable_check(struct sec_battery_info *battery,
 	//case ATTACHED_DEV_UNDEFINED_RANGE_MUIC:
 	case ATTACHED_DEV_SMARTDOCK_MUIC:
 	case ATTACHED_DEV_DESKDOCK_MUIC:
+	case ATTACHED_DEV_JIG_USB_ON_MUIC:
 		current_cable_type = POWER_SUPPLY_TYPE_BATTERY;
 		break;
 	case ATTACHED_DEV_OTG_MUIC:
@@ -6329,7 +6335,6 @@ static int sec_bat_cable_check(struct sec_battery_info *battery,
 	case ATTACHED_DEV_HMT_MUIC:
 		current_cable_type = POWER_SUPPLY_TYPE_OTG;
 		break;
-	case ATTACHED_DEV_JIG_USB_ON_MUIC:
 	case ATTACHED_DEV_JIG_USB_OFF_MUIC:
 #if defined(CONFIG_SEC_FACTORY) && defined(CONFIG_MUIC_S2MU005_DISCHARGING_WA)
 	case ATTACHED_DEV_CARKIT_MUIC:

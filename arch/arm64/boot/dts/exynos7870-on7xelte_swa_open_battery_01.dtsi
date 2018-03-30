@@ -38,7 +38,7 @@
 			fuelgauge,fuel_int = <&gpa0 3 0>;
 			fuelgauge,fuel_alert_soc = <1>;
 			fuelgauge,capacity_max = <1000>;
-			fuelgauge,capacity_max_margin = <70>;
+			fuelgauge,capacity_max_margin = <300>;
 			fuelgauge,capacity_min = <0>;
 			fuelgauge,capacity_calculation_type = <28>;
 			fuelgauge,fg_log_enable = <1>;

@@ -24,6 +24,10 @@
 
 #define FG_DRIVER_VER "0.0.0.1"
 
+#if defined(CONFIG_BATTERY_AGE_FORECAST)
+#define ENABLE_BATT_LONG_LIFE 1
+#endif
+
 struct battery_data_t {
 	const int battery_type; /* 4200 or 4350 or 4400*/
 	const int battery_table[3][16];
@@ -75,6 +79,17 @@ struct sec_fg_info {
 	u8 reg_data[2];
 
 	int battery_table[3][16];
+#ifdef ENABLE_BATT_LONG_LIFE
+#ifdef CONFIG_BATTERY_AGE_FORECAST_DETACHABLE
+	int v_max_table[3];
+	int q_max_table[3];
+#else
+	int v_max_table[5];
+	int q_max_table[5];
+#endif
+	int v_max_now;
+	int q_max_now;
+#endif
 	int rce_value[3];
 	int dtcd_value;
 	int rs_value[5]; /*rs p_mix_factor n_mix_factor max min*/
@@ -105,6 +120,10 @@ struct sec_fg_info {
 	int curr_lcal_2;
 	int en_auto_curr_offset;
 	int cntl_value;
+#ifdef ENABLE_FULL_OFFSET
+	int full_offset_margin;
+	int full_extra_offset;
+#endif
 
 	int temp_std;
 	int en_fg_temp_volcal;
@@ -139,10 +158,12 @@ struct sec_fg_info {
 
 
 	int battery_type; /* 4200 or 4350 or 4400*/
+	int data_ver;
 	uint32_t soc_alert_flag : 1;  /* 0 : nu-occur, 1: occur */
 	uint32_t volt_alert_flag : 1; /* 0 : nu-occur, 1: occur */
 	uint32_t flag_full_charge : 1; /* 0 : no , 1 : yes*/
 	uint32_t flag_chg_status : 1; /* 0 : discharging, 1: charging*/
+	uint32_t flag_charge_health : 1; /* 0 : no , 1 : good*/
 
 	int32_t irq_ctrl;
 	int value_v_alarm;
@@ -183,6 +204,9 @@ struct sec_fuelgauge_info {
 
 	unsigned int capacity_old;	/* only for atomic calculation */
 	unsigned int capacity_max;	/* only for dynamic calculation */
+#if defined(CONFIG_BATTERY_AGE_FORECAST)
+	unsigned int chg_full_soc; /* BATTERY_AGE_FORECAST */
+#endif
 
 	bool initial_update_of_soc;
 	struct mutex fg_lock;

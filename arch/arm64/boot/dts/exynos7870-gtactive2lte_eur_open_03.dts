@@ -453,7 +453,9 @@
 					<&but_zones 114 493 1300>; /* vol down */
 			mic-adc-range = <1367>;
 			mic-det-delay = <550>;
+			water-threshold-max = <2250>;
 			water-threshold-min1 = <550>;
+			water-threshold-min2 = <550>;
 		};
 	};
 
@@ -534,11 +536,11 @@
 	s1402x: s1402x@14880000 {
 		pinctrl-names = "default", "idle", "bt", "bt-idle";
 		pinctrl-0 = <&i2s_pmic_amp_bus
-			&i2s_bt_bus>;
+			&i2s_amp_bus>;
 		pinctrl-1 = <&i2s_pmic_amp_bus_idle
 			&i2s_bt_bus_idle> ;
 		pinctrl-2 = <&i2s_pmic_bus
-			&i2s_amp_bus>;
+			&i2s_bt_bus>;
 		pinctrl-3 = <&i2s_bt_bus_idle>;
 
 		/delete-property/ bck-mcko-mode;

@@ -385,6 +385,12 @@ int wldev_set_band(
 {
 	int error = -1;
 
+#ifdef DHD_2G_ONLY_SUPPORT
+	WLDEV_ERROR(("Enabled DHD 2G only support!!\n"));
+	if (band != WLC_BAND_2G) {
+		band = WLC_BAND_2G;
+	}
+#endif /* DHD_2G_ONLY_SUPPORT */
 	if ((band == WLC_BAND_AUTO) || (band == WLC_BAND_5G) || (band == WLC_BAND_2G)) {
 		error = wldev_ioctl_set(dev, WLC_SET_BAND, &band, sizeof(band));
 		if (!error)

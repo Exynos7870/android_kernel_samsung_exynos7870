@@ -1075,7 +1075,7 @@ const char *softap_info_items[] = {
 const char *softap_info_values[] = {
 	"yes", "yes", "10", "yes", "yes", "yes", NULL
 };
-#elif defined(BCM43455_CHIP)
+#elif defined(BCM43455_CHIP) || defined(BCM43456_CHIP)
 const char *softap_info_values[] = {
 	"no", "yes", "10", "no", "yes", "yes", NULL
 };
@@ -1101,16 +1101,6 @@ uint32 sec_save_softap_info(void)
 
 	DHD_TRACE(("[WIFI_SEC] %s: Entered.\n", __FUNCTION__));
 	memset(temp_buf, 0, sizeof(temp_buf));
-
-	fp = filp_open(filepath, O_RDONLY, 0);
-	if (IS_ERR(fp) || (fp == NULL)) {
-		DHD_ERROR(("[WIFI_SEC] %s: %s File open failed.(%ld)\n",
-			SOFTAPINFO, __FUNCTION__, PTR_ERR(fp)));
-	} else {
-		filp_close(fp, NULL);
-		DHD_ERROR(("[WIFI_SEC] %s already saved.\n", SOFTAPINFO));
-		return 0;
-	}
 
 	pos = temp_buf;
 	rem = sizeof(temp_buf);

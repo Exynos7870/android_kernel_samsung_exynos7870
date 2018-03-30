@@ -9,8 +9,8 @@
  * published by the Free Software Foundation.
 */
 
-#include "exynos7870.dtsi"
 #include "exynos7870-rmem-1500MB.dtsi"
+#include "exynos7870.dtsi"
 
 / {
 	model = "Samsung DEGAS2 WIFI board based on Exynos7870";

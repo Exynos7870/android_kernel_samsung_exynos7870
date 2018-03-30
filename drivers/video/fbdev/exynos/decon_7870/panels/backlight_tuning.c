@@ -40,7 +40,7 @@
 * = this means you write to 0x01(address) with 0x02(value) and you assign read address as 0x1 when you cat this sysfs next time
 */
 
-#if defined(CONFIG_DEBUG_FS) && defined(CONFIG_SEC_GPIO_DVS)
+#if defined(CONFIG_DEBUG_FS) && defined(CONFIG_SEC_GPIO_DVS) && !defined(CONFIG_SAMSUNG_PRODUCT_SHIP)
 #define BL_POINTS	\
 	X(OUT)		\
 	X(MAX)		\
@@ -282,6 +282,7 @@ static int bl_tuning_show(struct seq_file *m, void *unused)
 			break;
 		}
 	};
+	off = (off == INPUT_LIMIT) ? 0 : off;
 	if (off) {
 		seq_puts(m, "+TUNING------------------------------------------\n");
 		for (i = off; i >= 0; i--) {
@@ -360,6 +361,11 @@ static int ic_tuning_show(struct seq_file *m, void *unused)
 		return 0;
 	}
 
+	if (ic->bd->props.fb_blank != FB_BLANK_UNBLANK) {
+		dev_info(&ic->bd->dev, "%s: fb_blank is invalid, %d\n", __func__, ic->bd->props.fb_blank);
+		return 0;
+	}
+
 	status = i2c_smbus_read_byte_data(ic->client, ic->command);
 	if (status < 0)
 		seq_printf(m, "%02x, status: %0d\n", ic->command, status);
@@ -400,6 +406,11 @@ static ssize_t ic_tuning_write(struct file *filp, const char __user *buf,
 	}
 
 	dev_info(&ic->bd->dev, "%s: command: %02x, value: %02x%s\n", __func__, command, value, (ret == 2) ? ", write_mode" : "");
+
+	if (ic->bd->props.fb_blank != FB_BLANK_UNBLANK) {
+		dev_info(&ic->bd->dev, "%s: fb_blank is invalid, %d\n", __func__, ic->bd->props.fb_blank);
+		goto exit;
+	}
 
 	if (ret == 2)
 		i2c_smbus_write_byte_data(ic->client, command, value);
@@ -455,9 +466,11 @@ int init_bl_curve_debugfs(struct backlight_device *bd, unsigned int *table, stru
 		memset(full_string, 0, sizeof(full_string));
 		scnprintf(full_string, sizeof(full_string), "%s%s", name_string, clients[i2c_count]->name);
 		debugfs_create_file(full_string, S_IRUSR | S_IWUSR, debugfs_root, ic, &ic_tuning_fops);
+
+		dev_info(&bl->bd->dev, "%s: %s %s %s\n", __func__, full_string, dev_name(&clients[i2c_count]->adapter->dev), dev_name(&clients[i2c_count]->dev));
 	}
 
-	dev_info(&bl->bd->dev, "%s\n", __func__);
+	dev_info(&bl->bd->dev, "%s done\n", __func__);
 
 exit:
 	return ret;

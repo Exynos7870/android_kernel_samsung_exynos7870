@@ -31,6 +31,11 @@
 #include "include/charger/sm5705_charger.h"
 #include "include/charger/sm5705_charger_oper.h"
 
+#if defined(CONFIG_USE_POGO)
+extern void muic_detect_dev_for_wcin(void);
+#endif
+extern void muic_detect_dev_for_nobat(void);
+
 //#define SM5705_CHG_FULL_DEBUG 1
 
 #define ENABLE 1
@@ -815,6 +820,10 @@ static int sm5705_chg_set_property(struct power_supply *psy,
 		pr_info("POWER_SUPPLY_PROP_ONLINE - cable(%d->%d)\n",
 			charger->cable_type, val->intval);
 		charger->cable_type = val->intval;
+		if ((charger->cable_type == POWER_SUPPLY_TYPE_OTG) && (sm5705_charger_check_oper_otg_mode_on() == 0)) {
+			psy_chg_set_charge_otg_control(charger, true);
+			pr_info("POWER_SUPPLY_PROP_ONLINE - enable OTG");
+		}
 		charger->input_current = charger->pdata->charging_current
 				[charger->cable_type].input_current_limit;
 		sm5705_set_operation_mode(charger);
@@ -975,7 +984,7 @@ static int psy_chg_get_charge_type(struct sm5705_charger_data *charger)
 	int charge_type;
 
 	if (sm5705_charger_get_charging_on_status(charger)) {
-		if (sm5705_get_input_current(charger) == SLOW_CHARGING_CURRENT_STANDARD) {
+		if (sm5705_get_input_current(charger) <= charger->pdata->slow_current_threshold) {
 			charge_type = POWER_SUPPLY_CHARGE_TYPE_SLOW;
 		} else {
 			charge_type = POWER_SUPPLY_CHARGE_TYPE_FAST;
@@ -1010,7 +1019,11 @@ static int psy_chg_get_charging_health(struct sm5705_charger_data *charger)
 	}
 #endif
 
+#if !defined(CONFIG_USE_POGO)
 	if (charger->cable_type != POWER_SUPPLY_TYPE_WIRELESS) {
+#else
+	if (charger->cable_type != POWER_SUPPLY_TYPE_POGO) {
+#endif
 		if (reg_data & (1 << SM5705_INT_STATUS1_VBUSPOK)) {
 			state = POWER_SUPPLY_HEALTH_GOOD;
 		} else if (reg_data & (1 << SM5705_INT_STATUS1_VBUSOVP)) {
@@ -1190,6 +1203,8 @@ static int sm5705_otg_get_property(struct power_supply *psy,
 static int sm5705_otg_set_property(struct power_supply *psy,
 				enum power_supply_property psp, const union power_supply_propval *val)
 {
+	struct sm5705_charger_data *charger =
+		container_of(psy, struct sm5705_charger_data, psy_otg);
 	union power_supply_propval value;
 
 	switch (psp) {
@@ -1206,6 +1221,7 @@ static int sm5705_otg_set_property(struct power_supply *psy,
 		}
 		psy_do_property("sm5705-charger", set, POWER_SUPPLY_PROP_ONLINE, value);
 #endif
+		power_supply_changed(&charger->psy_otg);
 		break;
 	default:
 		return -EINVAL;
@@ -1258,13 +1274,14 @@ static void sm5705_pogo_work(struct work_struct *work)
 
 	if ((charger->irq_wpcin_state == 0) && (wpcin_state == 1)) {
 		value.intval = 1;
-		psy_do_property("wireless", set, POWER_SUPPLY_PROP_ONLINE, value);
+		psy_do_property("pogo", set, POWER_SUPPLY_PROP_ONLINE, value);
+		muic_detect_dev_for_wcin();
 
 		pr_info("%s: pogo activated\n", __func__);
 	} else if ((charger->irq_wpcin_state == 1) && (wpcin_state == 0)) {
 		value.intval = 0;
-		psy_do_property("wireless", set, POWER_SUPPLY_PROP_ONLINE, value);
-
+		psy_do_property("pogo", set, POWER_SUPPLY_PROP_ONLINE, value);
+		muic_detect_dev_for_wcin();
 		pr_info("%s: pogo de-activated\n", __func__);
 	}
 
@@ -1294,6 +1311,8 @@ static void sm5705_nobat_work(struct work_struct *work)
 		pr_info("%s: buck off because battery is not exist\n", __func__);
 		sm5705_update_reg(charger->i2c, SM5705_REG_CNTL, SM5705_CHARGER_OP_MODE_SUSPEND, 0x07);
 	}
+
+        muic_detect_dev_for_nobat();
 
 	pr_info("%s: schedule work done.\n", __func__);
 }
@@ -1343,7 +1362,7 @@ static void _reduce_input_limit_current(struct sm5705_charger_data *charger, int
 static void _check_slow_charging(struct sm5705_charger_data *charger, int input_current)
 {
 	/* under 400mA considered as slow charging concept for VZW */
-	if (input_current <= SLOW_CHARGING_CURRENT_STANDARD &&
+	if (input_current <= charger->pdata->slow_current_threshold &&
 		charger->cable_type != POWER_SUPPLY_TYPE_BATTERY) {
 		union power_supply_propval value;
 
@@ -1666,6 +1685,14 @@ static int _parse_sm5705_charger_node_propertys(struct device *dev,
 	pdata->support_slow_charging = true;
 #else
 	pdata->support_slow_charging = of_property_read_bool(np, "battery,support_slow_charging");
+	if (pdata->support_slow_charging) {
+		int ret = 0;
+		ret = of_property_read_u32(np, "battery,slow_current_threshold", &pdata->slow_current_threshold);
+		if (ret < 0) {
+			pr_info("%s: using default slow charging current threshold\n", __func__);
+			pdata->slow_current_threshold = 400;
+		}
+	}
 #endif
 
 	return 0;

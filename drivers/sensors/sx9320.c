@@ -52,7 +52,7 @@
 #define MAIN_SENSOR              1
 #define REF_SENSOR               2
 #define DIFF_READ_NUM            10
-#define GRIP_LOG_TIME            30 /* sec */
+#define GRIP_LOG_TIME            15 /* 30 sec */
 #define PHX_STATUS_REG           SX9320_STAT0_PROXSTAT_PH0_FLAG
 #define RAW_DATA_BLOCK_SIZE      (SX9320_REGOFFSETLSB - SX9320_REGUSEMSB + 1)
 /* CS0, CS1, CS2, CS3 */
@@ -115,6 +115,7 @@ struct sx9320_p {
 	s16 avg;
 	s32 diff;
 	s32 max_diff;
+	s32 max_normal_diff;
 	u16 offset;
 	u16 freq;
 	int ch1_state;
@@ -896,14 +897,19 @@ static ssize_t sx9320_irq_count_show(struct device *dev,
 {
 	struct sx9320_p *data = dev_get_drvdata(dev);
 	int result = 0;
+	s32 max_diff_val = 0;
 
-	if(data->irq_count)
+	if (data->irq_count) {
 		result = -1;
+		max_diff_val = data->max_diff;
+	} else {
+		max_diff_val = data->max_normal_diff;
+	}
 
 	pr_info("[SX9320]: %s - called\n", __func__);
 
 	return snprintf(buf, PAGE_SIZE, "%d,%d,%d\n",
-		result, data->irq_count, data->max_diff);
+		result, data->irq_count, max_diff_val);
 }
 
 static ssize_t sx9320_irq_count_store(struct device *dev,
@@ -928,6 +934,7 @@ static ssize_t sx9320_irq_count_store(struct device *dev,
 		data->abnormal_mode = ON;
 		data->irq_count = 0;
 		data->max_diff = 0;
+		data->max_normal_diff = 0;
 	} else {
 		pr_err("[SX9320]: %s - unknown value %d\n", __func__, onoff);
 	}
@@ -1158,13 +1165,20 @@ static void sx9320_debug_work_func(struct work_struct *work)
 	} else
 		hall_flag = 1;
 	if (atomic_read(&data->enable) == ON) {
-		if (data->debug_count >= GRIP_LOG_TIME) {
+		if (data->abnormal_mode) {
 			sx9320_get_data(data);
-			data->debug_count = 0;
+			if (data->max_normal_diff < data->diff)
+				data->max_normal_diff = data->diff;
 		} else {
-			data->debug_count++;
+			if (data->debug_count >= GRIP_LOG_TIME) {
+				sx9320_get_data(data);
+				data->debug_count = 0;
+			} else {
+				data->debug_count++;
+			}
 		}
 	}
+
 	schedule_delayed_work_on(1, &data->debug_work, msecs_to_jiffies(2000));
 }
 static irqreturn_t sx9320_interrupt_thread(int irq, void *pdata)

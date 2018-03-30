@@ -133,6 +133,9 @@ static void sec_power_off(void)
 			/* To enter LP charging */
 			exynos_pmu_write(EXYNOS_PMU_INFORM2, SEC_POWER_OFF);
 
+#ifdef CONFIG_SEC_DEBUG
+			sec_debug_reboot_handler();
+#endif
 			flush_cache_all();
 			mach_restart(REBOOT_SOFT, "sw reset");
 
@@ -144,6 +147,11 @@ static void sec_power_off(void)
 		/* wait for power button release */
 		if (gpio_get_value(powerkey_gpio)) {
 			pr_emerg("%s: set PS_HOLD low\n", __func__);
+
+#ifdef CONFIG_SEC_DEBUG
+			sec_debug_reboot_handler();
+			flush_cache_all();
+#endif
 
 			/* power off code
 			 * PS_HOLD Out/High -->

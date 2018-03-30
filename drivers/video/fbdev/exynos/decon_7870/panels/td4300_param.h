@@ -85,6 +85,10 @@ static const unsigned char SEQ_TD4300_ADDRESS[] = {
 	0x40,
 };
 
+static const unsigned char SEQ_CABC_MIN[] = {
+	0x5E,
+	0x03,
+};
 
 static const unsigned char SEQ_SLEEP_OUT[] = {
 	0x11,

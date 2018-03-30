@@ -805,7 +805,7 @@ static int sm5705_fled_probe(struct platform_device *pdev)
 	struct sm5705_fled_info *sm5705_fled;
 	struct sm5705_fled_platform_data *sm5705_fled_pdata;
 	struct device *dev = &pdev->dev;
-	int i,ret;
+	int i = 0, ret = 0;
 
 	if (IS_ERR_OR_NULL(camera_class)) {
 		dev_err(dev, "%s: can't find camera_class sysfs object, didn't used rear_flash attribute\n",

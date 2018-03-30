@@ -93,9 +93,10 @@ struct mdnie_seq_info {
 };
 
 struct mdnie_table {
+#define MDNIE_IDX_MAX	8
 	char *name;
-	unsigned int update_flag[8];
-	struct mdnie_seq_info seq[8 + 1];
+	unsigned int update_flag[MDNIE_IDX_MAX];
+	struct mdnie_seq_info seq[MDNIE_IDX_MAX + 1];
 };
 
 struct mdnie_scr_info {
@@ -198,10 +199,7 @@ struct mdnie_info {
 	mdnie_t sequence_buffer[256];
 };
 
-extern int mdnie_calibration(int *r);
-extern int mdnie_open_file(const char *path, char **fp);
 extern int mdnie_register(struct device *p, void *data, mdnie_w w, mdnie_r r, unsigned int *coordinate, struct mdnie_tune *tune);
-extern uintptr_t mdnie_request_table(char *path, struct mdnie_table *s);
 extern ssize_t attr_store_for_each(struct class *cls, const char *name, const char *buf, size_t size);
 extern struct class *get_mdnie_class(void);
 

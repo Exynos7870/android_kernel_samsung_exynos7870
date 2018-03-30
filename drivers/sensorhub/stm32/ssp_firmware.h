@@ -23,7 +23,7 @@
 #define BL_FW_NAME			"ssp_stmf410_a3p.fw"
 #define BL_UMS_FW_NAME		"ssp_stmf410_a3p.bin"
 #else //CONFIG_SENSORS_SSP_2017A3
-#define SSP_FIRMWARE_REVISION_STM	17052200
+#define SSP_FIRMWARE_REVISION_STM	17082800
 #define BL_FW_NAME			"ssp_stmf410_a2017.fw"
 #define BL_UMS_FW_NAME		"ssp_stmf410_a2017.bin"
 #endif

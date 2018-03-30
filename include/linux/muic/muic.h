@@ -187,6 +187,7 @@ typedef enum {
 	ATTACHED_DEV_CARKIT_MUIC,
 #endif
 	ATTACHED_DEV_POGO_MUIC,
+	ATTACHED_DEV_CHARGING_POGO_VB_MUIC,
 	ATTACHED_DEV_CHECK_OCP,
 	ATTACHED_DEV_UNKNOWN_MUIC,
 	ATTACHED_DEV_NUM,
@@ -231,6 +232,7 @@ struct muic_platform_data {
 
 	/* muic GPIO control function */
 	int (*init_gpio_cb) (int switch_sel);
+	void (*jig_uart_cb)(int jig_state);
 	int (*set_gpio_usb_sel) (int usb_path);
 	int (*set_gpio_uart_sel) (int uart_path);
 	int (*set_safeout) (int safeout_path);

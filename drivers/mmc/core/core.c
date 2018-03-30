@@ -1424,7 +1424,8 @@ int __mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage)
 	int old_signal_voltage = host->ios.signal_voltage;
 
 #if defined(CONFIG_BCM43454) || defined(CONFIG_BCM43454_MODULE) || \
-	defined(CONFIG_BCM43455) || defined(CONFIG_BCM43455_MODULE)
+	defined(CONFIG_BCM43455) || defined(CONFIG_BCM43455_MODULE) || \
+	defined(CONFIG_BCM43456) || defined(CONFIG_BCM43456_MODULE)
 	/* Some devices use only dedicated specific signaling level for
 	 * design reasons. MMC_CAP2_BROKEN_VOLTAGE flag is used when
 	 * there is no needs to change to any signaling level.
@@ -1432,7 +1433,8 @@ int __mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage)
 	if (host->caps2 & MMC_CAP2_BROKEN_VOLTAGE)
 		return 0;
 #endif /*(CONFIG_BCM43454) || (CONFIG_BCM43454_MODULE) || \
-	(CONFIG_BCM43455) || (CONFIG_BCM43455_MODULE)*/
+	(CONFIG_BCM43455) || (CONFIG_BCM43455_MODULE) || \
+	(CONFIG_BCM43456) || (CONFIG_BCM43456_MODULE)*/
 
 	host->ios.signal_voltage = signal_voltage;
 	if (host->ops->start_signal_voltage_switch) {
@@ -1457,7 +1459,8 @@ int mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage, u32 ocr)
 	BUG_ON(!host);
 
 #if defined(CONFIG_BCM43454) || defined(CONFIG_BCM43454_MODULE) || \
-	defined(CONFIG_BCM43455) || defined(CONFIG_BCM43455_MODULE)
+	defined(CONFIG_BCM43455) || defined(CONFIG_BCM43455_MODULE) || \
+	defined(CONFIG_BCM43456) || defined(CONFIG_BCM43456_MODULE)
 	/* Some devices use only dedicated specific signaling level for
 	 * design reasons. MMC_CAP2_BROKEN_VOLTAGE flag is used when
 	 * there is no needs to change to any signaling level.
@@ -1465,7 +1468,8 @@ int mmc_set_signal_voltage(struct mmc_host *host, int signal_voltage, u32 ocr)
 	if (host->caps2 & MMC_CAP2_BROKEN_VOLTAGE)
 		return 0;
 #endif /*(CONFIG_BCM43454) || (CONFIG_BCM43454_MODULE) || \
-	(CONFIG_BCM43455) || (CONFIG_BCM43455_MODULE)*/
+	(CONFIG_BCM43455) || (CONFIG_BCM43455_MODULE) || \
+	(CONFIG_BCM43456) || (CONFIG_BCM43456_MODULE)*/
 
 	/*
 	 * Send CMD11 only if the request is to switch the card to
@@ -2608,7 +2612,8 @@ void mmc_start_host(struct mmc_host *host)
 		mmc_power_up(host, host->ocr_avail);
 #if defined(CONFIG_QCOM_WIFI) || defined(CONFIG_BCM4343)  || defined(CONFIG_BCM4343_MODULE) || \
 	defined(CONFIG_BCM43454)  || defined(CONFIG_BCM43454_MODULE) || \
-	defined(CONFIG_BCM43455)  || defined(CONFIG_BCM43455_MODULE)
+	defined(CONFIG_BCM43455)  || defined(CONFIG_BCM43455_MODULE) || \
+	defined(CONFIG_BCM43456)  || defined(CONFIG_BCM43456_MODULE)
 	if (!strcmp("mmc1", mmc_hostname(host))) {
 		printk("%s skip mmc_detect_change\n", mmc_hostname(host));
 	} else if (host->caps2 & MMC_CAP2_SKIP_INIT_SCAN) {
@@ -2626,7 +2631,8 @@ void mmc_start_host(struct mmc_host *host)
 	}
 #endif /* CONFIG_QCOM_WIFI || CONFIG_BCM4343 || CONFIG_BCM4343_MODULE || \
 	CONFIG_BCM43454 || CONFIG_BCM43454_MODULE || \
-	CONFIG_BCM43455 || CONFIG_BCM43455_MODULE */
+	CONFIG_BCM43455 || CONFIG_BCM43455_MODULE || \
+	CONFIG_BCM43456 || CONFIG_BCM43456_MODULE */
 }
 
 void mmc_stop_host(struct mmc_host *host)
@@ -2877,7 +2883,8 @@ destroy_workqueue:
 }
 #if defined(CONFIG_BCM4343) || defined(CONFIG_BCM4343_MODULE) || \
 	defined(CONFIG_BCM43454) || defined(CONFIG_BCM43454_MODULE) || \
-	defined(CONFIG_BCM43455) || defined(CONFIG_BCM43455_MODULE)
+	defined(CONFIG_BCM43455) || defined(CONFIG_BCM43455_MODULE) || \
+	defined(CONFIG_BCM43456) || defined(CONFIG_BCM43456_MODULE)
 void mmc_ctrl_power(struct mmc_host *host, bool onoff)
 {
 	 if (!onoff) {
@@ -2890,7 +2897,8 @@ void mmc_ctrl_power(struct mmc_host *host, bool onoff)
 EXPORT_SYMBOL(mmc_ctrl_power);
 #endif /* CONFIG_BCM4343 || CONFIG_BCM4343_MODULE || \
 	  CONFIG_BCM43454 || CONFIG_BCM43454_MODULE || \
-	  CONFIG_BCM43455 || CONFIG_BCM43455_MODULE */
+	  CONFIG_BCM43455 || CONFIG_BCM43455_MODULE || \
+	  CONFIG_BCM43456 || CONFIG_BCM43456_MODULE */
 
 
 static void __exit mmc_exit(void)

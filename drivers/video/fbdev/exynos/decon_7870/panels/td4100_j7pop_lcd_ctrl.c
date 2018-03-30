@@ -380,7 +380,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 	case FB_EVENT_BLANK:
 		break;
 	default:
-		return 0;
+		return NOTIFY_DONE;
 	}
 
 	lcd = container_of(self, struct lcd_info, fb_notif_panel);
@@ -389,8 +389,8 @@ static int fb_notifier_callback(struct notifier_block *self,
 
 	dev_info(&lcd->ld->dev, "%s: %d\n", __func__, fb_blank);
 
-	if (evdata->info->node != 0)
-		return 0;
+	if (evdata->info->node)
+		return NOTIFY_DONE;
 
 	if (fb_blank == FB_BLANK_UNBLANK)
 		td4100_displayon_late(lcd);
@@ -441,6 +441,8 @@ static int isl98611_probe(struct i2c_client *client,
 	i2c_set_clientdata(client, lcd);
 
 	lcd->backlight_client = client;
+
+	dev_info(&lcd->ld->dev, "%s: %s %s\n", __func__, dev_name(&client->adapter->dev), of_node_full_name(client->dev.of_node));
 
 exit:
 	return ret;
@@ -786,12 +788,14 @@ static void lcd_init_dsi_access(struct lcd_info *lcd)
 static void lcd_init_sysfs(struct lcd_info *lcd)
 {
 	int ret = 0;
+	struct i2c_client *clients[] = {lcd->backlight_client, NULL};
 
 	ret = sysfs_create_group(&lcd->ld->dev.kobj, &lcd_sysfs_attr_group);
 	if (ret < 0)
 		dev_err(&lcd->ld->dev, "failed to add lcd sysfs\n");
 
 	lcd_init_dsi_access(lcd);
+	init_bl_curve_debugfs(lcd->bd, NULL, clients);
 }
 
 #if defined(CONFIG_EXYNOS_DECON_MDNIE_LITE)
@@ -876,7 +880,6 @@ static int dsim_panel_probe(struct dsim_device *dsim)
 
 #if defined(CONFIG_EXYNOS_DECON_LCD_SYSFS)
 	lcd_init_sysfs(lcd);
-	init_bl_curve_debugfs(lcd->bd, NULL, &lcd->backlight_client);
 #endif
 
 #if defined(CONFIG_EXYNOS_DECON_MDNIE_LITE)

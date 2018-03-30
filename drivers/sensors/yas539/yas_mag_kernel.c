@@ -54,6 +54,7 @@ struct yas_state {
 	struct device *yas_device;
 	int poll_delay;
 	int enable;
+	int reset_flag;	
 #if defined(CONFIG_SENSORS_BHA250_DEFENCE_SW_RESET)
 	int reset_state;
 #endif
@@ -252,12 +253,22 @@ static ssize_t yas_self_test_show(struct device *dev,
 	struct yas_state *data = i2c_get_clientdata(this_client);
 	struct yas539_self_test_result r;
 	s8 err[7] = { 0, };
-
 	int ret;
 
 	mutex_lock(&data->lock);
 	ret = data->mag.ext(YAS539_SELF_TEST, &r);
-
+	if (ret < 0) {
+		SENSOR_ERR("YAS539_SELF_TEST err : %d\n", ret);
+		if (ret == YAS_ERROR_BUSY
+				|| ret == YAS_ERROR_DEVICE_COMMUNICATION
+				|| ret == YAS_ERROR_CHIP_ID)
+			err[0] = -1;
+		else if (ret == YAS_ERROR_OVERFLOW
+				|| ret == YAS_ERROR_UNDERFLOW)
+			err[6] = -1;
+		mutex_unlock(&data->lock);
+		goto exit;
+	}
 	mutex_unlock(&data->lock);
 
 	if (unlikely(r.id != 0x8))
@@ -289,6 +300,8 @@ static ssize_t yas_self_test_show(struct device *dev,
 		err[5], r.sxy1y2[0], r.sxy1y2[1], r.sxy1y2[2],
 		err[6], r.xyz[0], r.xyz[1], r.xyz[2],
 		err[1]);
+exit:
+	data->reset_flag = 1;
 
 	return snprintf(buf, PAGE_SIZE,
 		"%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
@@ -315,6 +328,76 @@ static ssize_t yas_self_test_noise_show(struct device *dev,
 
 	return snprintf(buf, PAGE_SIZE, "%d,%d,%d\n",
 		xyz_raw[0], xyz_raw[1], xyz_raw[2]);
+}
+
+static ssize_t yas_self_test_noise_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	u8 enable;
+	int ret;
+	struct yas_state *data = dev_get_drvdata(dev);
+
+	ret = kstrtou8(buf, 2, &enable);
+	if (ret) {
+		SENSOR_ERR("Invalid Argument\n");
+		return size;
+	}
+
+	SENSOR_INFO("%u\n", enable);
+	if (enable == 1)
+		data->reset_flag = 1;
+		
+	return size;
+}
+
+static ssize_t yas_static_matrix_store(struct device *dev,
+		struct device_attribute *attr, const char *buf, size_t size)
+{
+	int m[9], i;
+	int16_t m_buf[9], ret;
+	struct yas_state *data = dev_get_drvdata(dev);
+
+	if (sscanf(buf, "%6d,%6d,%6d,%6d,%6d,%6d,%6d,%6d,%6d", &m[0], &m[1],
+		&m[2], &m[3], &m[4], &m[5], &m[6], &m[7], &m[8]) != 9) {
+		SENSOR_ERR("invalid value\n");
+		return size;
+	}
+
+	for (i = 0; i < 9; i++)
+		m_buf[i] = (int16_t)m[i];
+
+	ret = data->mag.ext(YAS539_SET_STATIC_MATRIX, m_buf);
+	if (ret < 0)
+		SENSOR_ERR("matrix writing failed %d\n", ret);
+
+	return size;
+}
+
+static ssize_t yas_static_matrix_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int16_t m[9], ret;
+	struct yas_state *data = dev_get_drvdata(dev);
+
+	data->mag.ext(YAS539_GET_STATIC_MATRIX, m);
+
+	ret = snprintf(buf, PAGE_SIZE, "%d,%d,%d,%d,%d,%d,%d,%d,%d\n",
+		m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]);
+
+	return ret;
+}
+
+static ssize_t yas_dhr_sensor_info_show(struct device *dev,
+	struct device_attribute *attr, char *buf)
+{
+	int16_t m[9];
+	struct yas_state *data = dev_get_drvdata(dev);
+
+	data->mag.ext(YAS539_GET_STATIC_MATRIX, m);
+
+	return snprintf(buf, PAGE_SIZE,
+		"\"SI_PARAMETER\":\"%d %d %d %d %d %d %d %d %d\"\n",
+		m[0], m[1], m[2], m[3], m[4], m[5], m[6], m[7], m[8]);
 }
 
 #if defined(CONFIG_SENSORS_BHA250_DEFENCE_SW_RESET)
@@ -374,13 +457,20 @@ static DEVICE_ATTR(sw_reset, S_IRUSR | S_IRGRP, yas_sw_reset_show, NULL);
 static DEVICE_ATTR(vendor, S_IRUGO, yas_vendor_show, NULL);
 static DEVICE_ATTR(name, S_IRUGO, yas_name_show, NULL);
 static DEVICE_ATTR(selftest, S_IRUSR, yas_self_test_show, NULL);
-static DEVICE_ATTR(raw_data, S_IRUSR, yas_self_test_noise_show, NULL);
+static DEVICE_ATTR(raw_data, S_IRUGO | S_IWUSR | S_IWGRP,
+	yas_self_test_noise_show, yas_self_test_noise_store);
+static DEVICE_ATTR(matrix, S_IRUGO | S_IWUSR | S_IWGRP,
+	yas_static_matrix_show, yas_static_matrix_store);
+static DEVICE_ATTR(dhr_sensor_info, S_IRUSR | S_IRGRP,
+			yas_dhr_sensor_info_show, NULL);
 
 static struct device_attribute *mag_sensor_attrs[] = {
 	&dev_attr_vendor,
 	&dev_attr_name,
 	&dev_attr_selftest,
 	&dev_attr_raw_data,
+	&dev_attr_matrix,
+	&dev_attr_dhr_sensor_info,	
 #if defined(CONFIG_SENSORS_BHA250_DEFENCE_SW_RESET)
 	&dev_attr_power_reset,
 	&dev_attr_sw_reset,
@@ -418,6 +508,11 @@ static void yas_work_func(struct work_struct *work)
 	input_report_rel(data->input, REL_X, data->compass_data[0]);
 	input_report_rel(data->input, REL_Y, data->compass_data[1]);
 	input_report_rel(data->input, REL_Z, data->compass_data[2]);
+	if (data->reset_flag) {
+		SENSOR_INFO("Magnetic cal reset!\n");
+		input_report_rel(data->input, REL_RZ, data->reset_flag);
+		data->reset_flag = 0;
+	}	
 	input_report_rel(data->input, REL_RX, time_hi);
 	input_report_rel(data->input, REL_RY, time_lo);
 	input_sync(data->input);
@@ -442,6 +537,7 @@ static int yas_input_init(struct yas_state *data)
 	input_set_capability(dev, EV_REL, REL_Z);
 	input_set_capability(dev, EV_REL, REL_RX);
 	input_set_capability(dev, EV_REL, REL_RY);
+	input_set_capability(dev, EV_REL, REL_RZ);
 	input_set_drvdata(dev, data);
 
 	ret = input_register_device(dev);
@@ -573,7 +669,7 @@ static int yas_probe(struct i2c_client *i2c, const struct i2c_device_id *id)
 		goto err_parse_dt;
 	}
 
-	ret = sensors_register(data->yas_device, data, mag_sensor_attrs,
+	ret = sensors_register(&data->yas_device, data, mag_sensor_attrs,
 		MODULE_NAME_MAG);
 	if (ret < 0) {
 		SENSOR_ERR("cound not register mag sensor device(%d).\n", ret);

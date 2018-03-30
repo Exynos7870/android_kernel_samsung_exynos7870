@@ -256,14 +256,20 @@ extern void sec_debug_avc_log(char *fmt, ...);
 #ifdef CONFIG_SEC_DEBUG_TSP_LOG
 extern void sec_debug_tsp_log(char *fmt, ...);
 extern void sec_debug_tsp_log_msg(char *msg, char *fmt, ...);
+extern void sec_debug_tsp_raw_data(char *fmt, ...);
+extern void sec_debug_tsp_raw_data_msg(char *msg, char *fmt, ...);
+extern void sec_tsp_raw_data_clear(void);
 #if defined(CONFIG_TOUCHSCREEN_FTS)
 extern void tsp_dump(void);
 #elif defined(CONFIG_TOUCHSCREEN_SEC_TS)
 extern void tsp_dump_sec(void);
 #endif
 #else
-#define sec_debug_tsp_log(a, ...)		do { } while (0)
-#define sec_debug_tsp_log_msg(a, b, ...)	do { } while (0)
+#define sec_debug_tsp_log(a, ...)			do { } while (0)
+#define sec_debug_tsp_log_msg(a, b, ...)		do { } while (0)
+#define sec_debug_tsp_raw_data(a, ...)			do { } while (0)
+#define sec_debug_tsp_raw_data_msg(a, b, ...)		do { } while (0)
+#define sec_tsp_raw_data_clear()			do { } while (0)
 #endif /* CONFIG_SEC_DEBUG_TSP_LOG */
 
 extern int sec_debug_force_error(const char *val, struct kernel_param *kp);

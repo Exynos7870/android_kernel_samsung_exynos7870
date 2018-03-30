@@ -127,8 +127,6 @@
 		
 		PIN_IN(gpc5-0, DOWN, LV1);	/* NC */
 		PIN_IN(gpc5-1, DOWN, LV1);	/* NC */
-		PIN_IN(gpc9-0, NONE, LV1);	/* LCD_BL_SDA_1P8 */
-		PIN_IN(gpc9-1, NONE, LV1);	/* LCD_BL_SCL_1P8 */
 		
 		PIN_IN(gpd1-2, DOWN, LV1);	/* LCD_ESD_DET */
 		PIN_IN(gpd1-3, NONE, LV1);	/* GRIP_DET  */

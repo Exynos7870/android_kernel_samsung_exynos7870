@@ -272,6 +272,8 @@ static int tc358764_probe(struct i2c_client *client,
 	lcd->panel_power_gpio = of_get_gpio(client->dev.of_node, 0);
 	lcd->panel_pwm_gpio = of_get_gpio(client->dev.of_node, 1);
 
+	dev_info(&lcd->ld->dev, "%s: %s %s\n", __func__, dev_name(&client->adapter->dev), of_node_full_name(client->dev.of_node));
+
 exit:
 	return ret;
 }

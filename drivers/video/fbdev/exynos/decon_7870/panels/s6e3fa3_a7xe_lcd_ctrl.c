@@ -430,7 +430,7 @@ static void init_dynamic_aid(struct lcd_info *lcd)
 	lcd->daid.m_gray = m_gray;
 }
 
-/* V255(msb is seperated) ~ VT -> VT ~ V255(msb is not seperated) and signed bit */
+/* V255(msb is separated) ~ VT -> VT ~ V255(msb is not separated) and signed bit */
 static void reorder_reg2mtp(u8 *reg, int *mtp)
 {
 	int j, c, v;
@@ -452,7 +452,7 @@ static void reorder_reg2mtp(u8 *reg, int *mtp)
 	}
 }
 
-/* V255(msb is seperated) ~ VT -> VT ~ V255(msb is not seperated) */
+/* V255(msb is separated) ~ VT -> VT ~ V255(msb is not separated) */
 static void reorder_reg2gamma(u8 *reg, int *gamma)
 {
 	int j, c, v;
@@ -474,7 +474,7 @@ static void reorder_reg2gamma(u8 *reg, int *gamma)
 	}
 }
 
-/* VT ~ V255(msb is not seperated) -> V255(msb is seperated) ~ VT */
+/* VT ~ V255(msb is not separated) -> V255(msb is separated) ~ VT */
 /* array idx zero (reg[0]) is reserved for gamma command address (0xCA) */
 static void reorder_gamma2reg(int *gamma, u8 *reg)
 {

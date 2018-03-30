@@ -71,6 +71,7 @@
 #define SM5705_REG_CURRENT_EST      0x85
 #define SM5705_REG_CURRENT_ERR      0x86
 #define SM5705_REG_Q_EST            0x87
+#define SM5705_AUX_STAT             0x94
 
 #define SM5705_REG_MISC			0x90
 #define SM5705_REG_RESET		0x91
@@ -113,6 +114,8 @@
 #define CNTL_REG_DEFAULT_VALUE  0x2008
 #define INIT_CHECK_MASK         0x0010
 #define DISABLE_RE_INIT         0x0010
+#define SM5705_JIG_CONNECTED	0x0001
+#define SM5705_BATTERY_VERSION	0x00F0
 
 #define TOPOFF_SOC_97    0x111
 #define TOPOFF_SOC_96    0x110

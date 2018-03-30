@@ -683,7 +683,7 @@ static int dsim_reset_panel(struct dsim_device *dsim)
 	return 0;
 }
 
-int dsim_set_panel_pre_power(struct dsim_device *dsim)
+int dsim_set_panel_power_early(struct dsim_device *dsim)
 {
 	dsim_dbg("%s +\n", __func__);
 
@@ -729,9 +729,9 @@ static int dsim_enable(struct dsim_device *dsim)
 	}
 
 	/* Panel power on early*/
-	dsim_set_panel_pre_power(dsim);
+	dsim_set_panel_power_early(dsim);
 
-	call_panel_ops(dsim, prepare, dsim);
+	call_panel_ops(dsim, resume_early, dsim);
 
 #ifdef CONFIG_EXYNOS_MIPI_DSI_ENABLE_EARLY
 	if (dsim->enable_early == DSIM_ENABLE_EARLY_DONE) {
@@ -1571,7 +1571,7 @@ static int dsim_probe(struct platform_device *pdev)
 	}
 
 	/* Panel power on */
-	ret = dsim_set_panel_pre_power(dsim);
+	ret = dsim_set_panel_power_early(dsim);
 	if (ret) {
 		dsim_err("%s : failed to panel power early\n", __func__);
 		goto err;

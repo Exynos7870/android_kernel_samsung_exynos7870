@@ -45,7 +45,27 @@ config BATTERY_AGE_FORECAST
 	default n
 	depends on BATTERY_SWELLING
 	help
-	Say Y to use calc time to full function.
+	Say Y to use battery age forecast
+
+config BATTERY_AGE_FORECAST_DETACHABLE
+	tristate "battery age forecast for detachable"
+	default n
+	select BATTERY_AGE_FORECAST
+	help
+	Say Y to use battery age forecast for detachable
+
+config BATTERY_AGE_FORECAST_B2B
+	tristate "battery age forecast for B2B"
+	default n
+	select BATTERY_AGE_FORECAST
+	help
+	Say Y to use battery age forecast for B2B
+
+config DCM_JPN_CONCEPT_FG_CYCLE_CHECK
+	bool "enable fg_cycle_check_value for dcm jpn"
+	default n
+	help
+	 Say Y to use fg_cycle_check_value.
 
 config MULTI_CHARGING
 	bool "support for multi charger ICs"
@@ -538,6 +558,13 @@ config THM_MUX_SHARE
 	default n
 	help
 	  Say Y to enable use xadc mux for BAT_THM with AP_THM
+	  
+config S2MU005_EVT4_DISABLE_BUCK_MODE
+	bool "Disable buck only mode in S2MU005X03"
+	default n
+	depends on CHARGER_S2MU005
+	help
+	  Say Y to enable use all-off mode in S2MU005X03
 
 config TYPEB_WATERPROOF_MODEL
 	bool "enable typeb_waterproof_model"

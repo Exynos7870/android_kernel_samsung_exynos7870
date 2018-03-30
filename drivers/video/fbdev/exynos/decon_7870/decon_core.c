@@ -1567,7 +1567,7 @@ static int decon_blank(int blank_mode, struct fb_info *info)
 		DISP_SS_EVENT_LOG(DISP_EVT_BLANK, &decon->sd, ktime_set(0, 0));
 		ret = decon_disable(decon);
 		if (ret) {
-			decon_err("failed to disable decon\n");
+			decon_err("skipped to disable decon\n");
 			goto blank_exit;
 		}
 		break;
@@ -1575,7 +1575,7 @@ static int decon_blank(int blank_mode, struct fb_info *info)
 		DISP_SS_EVENT_LOG(DISP_EVT_UNBLANK, &decon->sd, ktime_set(0, 0));
 		ret = decon_enable(decon);
 		if (ret) {
-			decon_err("failed to enable decon\n");
+			decon_err("skipped to enable decon\n");
 			goto blank_exit;
 		}
 		break;

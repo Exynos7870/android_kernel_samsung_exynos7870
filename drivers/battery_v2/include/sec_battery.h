@@ -98,6 +98,7 @@
 #define BATT_MISC_EVENT_WIRELESS_BACKPACK_TYPE	0x00000002
 #define BATT_MISC_EVENT_TIMEOUT_OPEN_TYPE	0x00000004
 #define BATT_MISC_EVENT_BATT_RESET_SOC		0x00000008
+#define BATT_MISC_EVENT_UNDEFINED_RANGE_POGO    0x00000010
 
 #define SEC_INPUT_VOLTAGE_5V	5
 #define SEC_INPUT_VOLTAGE_9V	9
@@ -144,6 +145,9 @@ struct sec_battery_info {
 	struct power_supply psy_ac;
 	struct power_supply psy_wireless;
 	struct power_supply psy_ps;
+#if defined(CONFIG_USE_POGO)
+	struct power_supply psy_pogo;
+#endif
 	unsigned int irq;
 
 	int pd_usb_attached;
@@ -327,6 +331,9 @@ struct sec_battery_info {
 
 	int wire_status;
 
+	/* pogo status */
+	int pogo_status;
+
 	/* wearable charging */
 	int ps_status;
 	int ps_enable;
@@ -365,6 +372,9 @@ struct sec_battery_info {
 #if defined(CONFIG_BATTERY_AGE_FORECAST)
 	int batt_cycle;
 #endif
+#if defined(CONFIG_DCM_JPN_CONCEPT_FG_CYCLE_CHECK)
+	int fg_cycle_check_value;
+#endif
 #if defined(CONFIG_STEP_CHARGING)
 	unsigned int step_charging_type;
 	unsigned int step_charging_charge_power;
@@ -390,6 +400,7 @@ struct sec_battery_info {
 	unsigned long cal_safety_time;
 
 	bool block_water_event;
+	int water_det;
 };
 
 ssize_t sec_bat_show_attrs(struct device *dev,
@@ -510,6 +521,12 @@ enum {
 	FG_FULL_VOLTAGE,
 	FG_FULLCAPNOM,
 	BATTERY_CYCLE,
+#if defined(CONFIG_BATTERY_AGE_FORECAST_DETACHABLE)
+	BATT_AFTER_MANUFACTURED,
+#endif
+#endif
+#if defined(CONFIG_DCM_JPN_CONCEPT_FG_CYCLE_CHECK)
+	FG_CYCLE_CHECK_VALUE,
 #endif
 	BATT_WPC_TEMP,
 	BATT_WPC_TEMP_ADC,
@@ -568,6 +585,7 @@ enum {
 	FACTORY_MODE_BYPASS,
 	NORMAL_MODE_BYPASS,
 	FACTORY_VOLTAGE_REGULATION,
+	BATT_PRESENT,
 };
 
 enum {

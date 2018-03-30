@@ -66,6 +66,31 @@ void muic_set_wakeup_noti(int flag)
 	muic_wakeup_noti = flag;
 }
 
+static void update_jig_state(muic_data_t *pmuic)
+{
+	int jig_state;
+
+	switch (pmuic->attached_dev) {
+	case ATTACHED_DEV_JIG_UART_OFF_MUIC:
+	case ATTACHED_DEV_JIG_UART_OFF_VB_MUIC:     /* VBUS enabled */
+	case ATTACHED_DEV_JIG_UART_OFF_VB_OTG_MUIC:    /* for otg test */
+	case ATTACHED_DEV_JIG_UART_OFF_VB_FG_MUIC:    /* for fg test */
+	case ATTACHED_DEV_JIG_UART_ON_MUIC:
+	case ATTACHED_DEV_JIG_UART_ON_VB_MUIC:       /* VBUS enabled */
+	case ATTACHED_DEV_JIG_USB_OFF_MUIC:
+	case ATTACHED_DEV_JIG_USB_ON_MUIC:
+		jig_state = true;
+		break;
+	default:
+		jig_state = false;
+		break;
+	}
+	pr_err("%s:%s jig_state : %d\n", MUIC_DEV_NAME, __func__, jig_state);
+
+	if (pmuic->pdata->jig_uart_cb)
+		pmuic->pdata->jig_uart_cb(jig_state);
+}
+
 static void muic_handle_attach(muic_data_t *pmuic,
 			muic_attached_dev_t new_dev, int adc, u8 vbvolt)
 {
@@ -190,6 +215,10 @@ static void muic_handle_attach(muic_data_t *pmuic,
 		}
 		break;
 	case ATTACHED_DEV_UNDEFINED_CHARGING_MUIC:
+	case ATTACHED_DEV_UNDEFINED_RANGE_MUIC:
+		break;
+	case ATTACHED_DEV_CHARGING_POGO_VB_MUIC:
+		muic_mux_sel_control(pmuic, NORMAL_USB_PATH);
 		break;
 
 	default:
@@ -204,8 +233,6 @@ static void muic_handle_attach(muic_data_t *pmuic,
 	/* For GTACTIVE2 POGO */
 	case ATTACHED_DEV_POGO_MUIC:
 #ifdef CONFIG_MUIC_POGO
-		/* Clear abnormal POGO connection status flag which is set by USB */
-		muic_set_pogo_status(pmuic, 0);
 		muic_mux_sel_control(pmuic, POGO_USB_PATH);
 		pmuic->attached_dev = new_dev;
 #endif
@@ -262,11 +289,16 @@ static void muic_handle_attach(muic_data_t *pmuic,
 		ret = attach_ps_cable(pmuic, new_dev);
 		break;
 	case ATTACHED_DEV_UNDEFINED_CHARGING_MUIC:
+	case ATTACHED_DEV_UNDEFINED_RANGE_MUIC:
 		com_to_open_with_vbus(pmuic);
 		pmuic->attached_dev = new_dev;
 		break;
 	case ATTACHED_DEV_VZW_INCOMPATIBLE_MUIC:
 		com_to_open_with_vbus(pmuic);
+		pmuic->attached_dev = new_dev;
+		break;
+	case ATTACHED_DEV_CHARGING_POGO_VB_MUIC:
+		muic_mux_sel_control(pmuic, POGO_USB_PATH);
 		pmuic->attached_dev = new_dev;
 		break;
 	default:
@@ -304,8 +336,6 @@ static void muic_handle_detach(muic_data_t *pmuic)
 	/* For GTACTIVE2 POGO */
 	case ATTACHED_DEV_POGO_MUIC:
 #ifdef CONFIG_MUIC_POGO
-		/* Clear abnormal POGO connection status flag which is set by USB */
-		muic_set_pogo_status(pmuic, 0);
 		muic_mux_sel_control(pmuic, NORMAL_USB_PATH);
 		pmuic->attached_dev = ATTACHED_DEV_NONE_MUIC;
 #endif
@@ -364,6 +394,15 @@ static void muic_handle_detach(muic_data_t *pmuic)
 		pr_info("%s:%s UNKNOWN\n", MUIC_DEV_NAME, __func__);
 		pmuic->attached_dev = ATTACHED_DEV_NONE_MUIC;
 		break;
+	case ATTACHED_DEV_UNDEFINED_RANGE_MUIC:
+		pr_info("%s:%s UNDEFINED_RANGE\n", MUIC_DEV_NAME, __func__);
+		pmuic->attached_dev = ATTACHED_DEV_NONE_MUIC;
+		break;
+	case ATTACHED_DEV_CHARGING_POGO_VB_MUIC:
+		pr_info("%s:%s CHARGING POGO DOCK\n", MUIC_DEV_NAME, __func__);
+		muic_mux_sel_control(pmuic, NORMAL_USB_PATH);
+		pmuic->attached_dev = ATTACHED_DEV_NONE_MUIC;
+		break;
 	default:
 		pmuic->is_afc_device = 0;
 		pr_info("%s:%s invalid attached_dev type(%d)\n", MUIC_DEV_NAME,
@@ -400,20 +439,38 @@ void muic_detect_dev(muic_data_t *pmuic)
 
 	pr_info("%s:%s USB_ID_CTR:%d\n", MUIC_DEV_NAME, __func__, usb_id_ctr_value);
 
+#if defined(CONFIG_MUIC_UNIVERSAL_CCIC)
+	if (pmuic->rprd && pmuic->vps.s.vbvolt) {
+		pr_info("%s:%s OTG Already attached.\n", MUIC_DEV_NAME, __func__);
+#if defined(CONFIG_VBUS_NOTIFIER)
+		vbus_notifier_handle(!!pmuic->vps.s.vbvolt ? STATUS_VBUS_HIGH : STATUS_VBUS_LOW);
+#endif /* CONFIG_VBUS_NOTIFIER */
+		return;
+	}
+#endif
 	vps_resolve_dev(pmuic, &new_dev, &intr);
 
         if (new_dev == ATTACHED_DEV_USB_MUIC && pmuic->is_dcdtmr_intr == true) {
                 new_dev = ATTACHED_DEV_TIMEOUT_OPEN_MUIC;
         }
-		
+
 #if defined(CONFIG_MUIC_UNIVERSAL_CCIC)
 	if (pmuic->opmode & OPMODE_CCIC) {
 		/* FIXME, POGO for GTACTIVE2 */
-		if (new_dev != ATTACHED_DEV_POGO_MUIC && pmuic->attached_dev != ATTACHED_DEV_POGO_MUIC)
+		if (new_dev != ATTACHED_DEV_POGO_MUIC && pmuic->attached_dev != ATTACHED_DEV_POGO_MUIC &&
+			new_dev != ATTACHED_DEV_CHARGING_POGO_VB_MUIC &&
+			pmuic->attached_dev != ATTACHED_DEV_CHARGING_POGO_VB_MUIC &&
+			new_dev != ATTACHED_DEV_UNDEFINED_RANGE_MUIC &&
+			pmuic->attached_dev != ATTACHED_DEV_UNDEFINED_RANGE_MUIC)
 			if (!mdev_continue_for_TA_USB(pmuic, new_dev))
 				return;
 	}
 #endif
+
+	pr_info("%s:%s new_dev: %d, dcdtmr_intr: %d, rescanned: %d\n",
+		MUIC_DEV_NAME, __func__, new_dev, pmuic->is_dcdtmr_intr,
+		pmuic->is_rescanned);
+
 	if (new_dev == ATTACHED_DEV_TIMEOUT_OPEN_MUIC &&
 			pmuic->is_dcdtmr_intr ==true &&
 			pmuic->is_rescanned == true) {
@@ -435,6 +492,9 @@ void muic_detect_dev(muic_data_t *pmuic)
 	} else {
 		muic_handle_detach(pmuic);
 	}
+
+	update_jig_state(pmuic);
+
 #if defined(CONFIG_VBUS_NOTIFIER)
 	vbus_notifier_handle(!!pmuic->vps.s.vbvolt ? STATUS_VBUS_HIGH : STATUS_VBUS_LOW);
 #endif /* CONFIG_VBUS_NOTIFIER */

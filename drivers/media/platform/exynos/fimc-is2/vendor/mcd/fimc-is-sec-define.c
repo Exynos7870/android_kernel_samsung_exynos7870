@@ -258,7 +258,7 @@ u8 fimc_is_sec_compare_ver(int position)
 	char ver[3] = {'V', '0', '0'};
 	struct fimc_is_from_info *finfo = NULL;
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
+#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT) || defined(CONFIG_CAMERA_OTPROM_SUPPORT_FRONT)
 	if (position == SENSOR_POSITION_FRONT)
 		finfo = &sysfs_finfo_front;
 	else
@@ -291,7 +291,7 @@ bool fimc_is_sec_check_from_ver(struct fimc_is_core *core, int position)
 		return false;
 	}
 
-#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT)
+#if defined(CONFIG_CAMERA_EEPROM_SUPPORT_FRONT) || defined(CONFIG_CAMERA_OTPROM_SUPPORT_FRONT)
 	if (position == SENSOR_POSITION_FRONT) {
 		finfo = &sysfs_finfo_front;
 		latest_from_ver = CAL_MAP_ES_VERSION_FRONT;

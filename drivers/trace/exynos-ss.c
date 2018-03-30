@@ -279,6 +279,12 @@ struct exynos_ss_log {
 		void *last_pc[ESS_ITERATION];
 	} core[ESS_NR_CPUS];
 #endif
+	struct i2c_clk_log {
+		unsigned long long time;
+		int bus_id;
+		int clk_enable;
+		int en;
+	} i2c_clk[ESS_LOG_MAX_NUM];
 };
 
 struct exynos_ss_log_idx {
@@ -322,6 +328,7 @@ struct exynos_ss_log_idx {
 	atomic_t printkl_log_idx;
 	atomic_t printk_log_idx;
 #endif
+	atomic_t i2c_clk_log_idx;
 };
 #ifdef CONFIG_ARM64
 struct exynos_ss_mmu_reg {
@@ -778,6 +785,11 @@ int exynos_ss_post_reboot(void)
 	/* clear ESS_SIGN_PANIC when normal reboot */
 	for (cpu = 0; cpu < ESS_NR_CPUS; cpu++)
 		exynos_ss_set_core_panic_stat(ESS_SIGN_RESET, cpu);
+
+#ifdef CONFIG_SEC_DEBUG
+	sec_debug_reboot_handler();
+	flush_cache_all();
+#endif
 
 	return 0;
 }
@@ -1727,6 +1739,7 @@ static void __init exynos_ss_fixmap_header(void)
 #ifdef CONFIG_EXYNOS_SNAPSHOT_HRTIMER
 		atomic_set(&(ess_idx.hrtimer_log_idx[i]), -1);
 #endif
+		atomic_set(&(ess_idx.i2c_clk_log_idx), -1);
 	}
 	/*  initialize kernel event to 0 except only header */
 	memset((size_t *)(vaddr + ESS_KEEP_HEADER_SZ), 0, size - ESS_KEEP_HEADER_SZ);
@@ -2241,6 +2254,27 @@ void exynos_ss_freq(int type, unsigned long old_freq, unsigned long target_freq,
 	}
 }
 #endif
+
+void exynos_ss_i2c_clk(struct clk *clk, int bus_id, int en)
+{
+	struct exynos_ss_item *item = &ess_items[ess_desc.kevents_num];
+
+	if (bus_id != 0)
+		return;
+
+	if (unlikely(!ess_base.enabled || !item->entry.enabled || !item->entry.enabled_init))
+		return;
+	{
+		int cpu = raw_smp_processor_id();
+		unsigned long i = atomic_inc_return(&ess_idx.i2c_clk_log_idx) &
+				(ARRAY_SIZE(ess_log->i2c_clk) - 1);
+
+		ess_log->i2c_clk[i].time = cpu_clock(cpu);
+		ess_log->i2c_clk[i].bus_id = bus_id;
+		ess_log->i2c_clk[i].clk_enable = clk->enable_count;
+		ess_log->i2c_clk[i].en = en;
+	}
+}
 
 #ifdef CONFIG_EXYNOS_SNAPSHOT_HRTIMER
 void exynos_ss_hrtimer(void *timer, s64 *now, void *fn, int en)

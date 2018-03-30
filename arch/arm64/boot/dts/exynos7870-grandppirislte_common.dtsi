@@ -9,8 +9,8 @@
  * published by the Free Software Foundation.
 */
 
-#include "exynos7870.dtsi"
 #include "exynos7870-rmem-2000MB_secure-camera.dtsi"
+#include "exynos7870.dtsi"
 
 / {
 	model = "Samsung GRANDPPIRISLTE board based on Exynos7870";
@@ -98,6 +98,7 @@
 		pinctrl-1 = <&i2s_pmic_bus_idle
 				&i2s_bt_bus_idle> ;
 		bck-mcko-mode;
+		bt-fm-combo;
 		status = "okay";
 	};
 
@@ -340,7 +341,7 @@
 		regulator-initial-mode = <0>;
 	};
 
-	i2c@13890000{
+	i2c@13840000{
 		samsung,i2c-sda-delay = <100>;
 		samsung,i2c-max-bus-freq = <400000>;
 		status = "okay";
@@ -353,6 +354,7 @@
 			pinctrl-0 = <&attn_irq>;
 			pinctrl-1 = <&attn_input>;
 			zinitix,irq_gpio = <&gpa0 6 0>;
+			zinitix,regulator_dvdd = "vdd_ldo3";
 			zinitix,regulator_avdd = "tsp_avdd";
 			zinitix,x_resolution = <539>;
 			zinitix,y_resolution = <959>;
@@ -373,6 +375,29 @@
 		};
 	};
 
+	muic {
+		status = "okay";
+		muic,support-list = "+OTG:GND",
+					"-MHL:1K",
+					"-VZW Accessory:28.7K",
+					"-VZW Incompatible:34K",
+					"-Smartdock:40.2K",
+					"-HMT:49.9K",
+					"-Audiodock:64.9K",
+					"+USB LANHUB:80.07K",
+					"-Charging Cable:102K",
+					"-Universal Multimedia dock:121K",
+					"+Jig USB Off:255K",
+					"+Jig USB On:301K",
+					"-Deskdock:365K",
+					"-TYPE2 Charger:442K",
+					"+Jig UART Off:523K",
+					"+Jig UART On:619K",
+					"+TA:OPEN",
+					"+USB:OPEN",
+					"+CDP:OPEN",
+					"+Undefined Charging:XXX";
+	};
 
 	pinctrl@139F0000 {
 		key_power: key-power {
@@ -442,6 +467,12 @@
 		};
 
 		if_irq: if-irq {
+			samsung,pins = "gpa1-4";
+			samsung,pin-pud = <3>;
+			samsung,pin-drv = <3>;
+		};
+	
+		muic_irq: muic-irq {
 			samsung,pins = "gpa2-7";
 			samsung,pin-pud = <3>;
 			samsung,pin-drv = <3>;
@@ -465,6 +496,22 @@
 			samsung,pin-con-pdn = <3>;
 			samsung,pin-pud-pdn = <0>;
 			samsung,pin-val = <0>;
+		};
+	};
+
+	pinctrl@148C0000 {
+		i2s_pmic_bus: i2s-pmic-bus {
+			samsung,pins = "gpz1-0", "gpz1-2", "gpz1-3", "gpz1-4";
+			samsung,pin-function = <2>;
+			samsung,pin-pud = <3>;
+			samsung,pin-drv = <5>;
+		};
+
+		i2s_pmic_bus_idle: i2s-pmic-bus-idle {
+			samsung,pins = "gpz1-0", "gpz1-2", "gpz1-3", "gpz1-4";
+			samsung,pin-function = <0>;
+			samsung,pin-pud = <3>;
+			samsung,pin-drv = <5>;
 		};
 	};
 
@@ -494,6 +541,7 @@
 			&audio_codec_cod3026x>;
 		mic-bias-mode = <1 1 2 0>;
 		samsung,auxdev = <&s1402x>;
+		fm-slave-i2s;
 		status = "okay";
 	};
 
@@ -1185,8 +1233,8 @@
 		compatible = "samsung,sensor-module-4h5yc";
 
 		pinctrl-names = "pin0", "pin1";
-		pinctrl-0 = <&fimc_is_mclk0_in &fimc_is_flash>;
-		pinctrl-1 = <&fimc_is_mclk0_fn &fimc_is_flash>;
+		pinctrl-0 = <&fimc_is_mclk0_in>;
+		pinctrl-1 = <&fimc_is_mclk0_fn>;
 
 		position = <0>; /* Rear:0. Front:1 */
 		id = <0>; /* sensor node id */
@@ -1235,10 +1283,21 @@
 		status = "okay";
 	};
 
-	leds_ktd2692 {
+	leds_ktd2692_iris {
 		compatible = "ktd2692-ir";
 		flash_control = <&gpa2 5 0x1>; /* FLASHLED_CTRL */
 		iris_led_tz = <&gpc2 2 0x1>; /* IRIS_LED_TZ  */
+		status = "okay";
+	};
+
+	leds_ktd2692 {
+		compatible = "ktd2692";
+		flash_control = <&gpd3 2 0x1>; /* FLASHLED_CTRL */
+		flash_current = <1200>;
+		pre_flash_current = <175>;
+		movie_current = <175>; 
+		factory_current = <175>; 
+		torch_current = <75>; 
 		status = "okay";
 	};
 
@@ -1248,7 +1307,7 @@
 		status = "okay";
 
 		flash-gpio = <&gpd3 2 0>;
-		torch-gpio = <&gpd3 3 0>;
+		torch-gpio = <&gpd3 2 0>;
 	};
 
 	hsi2c_2: hsi2c@13960000 {
@@ -1263,6 +1322,12 @@
 		rear_eeprom@51 {
 			compatible = "samsung,rear-eeprom-i2c";
 			reg = <0x58>;
+		};
+
+		fimc-is-actuator@18 {
+			compatible = "samsung,exynos5-fimc-is-actuator-dw9807";
+			reg = <0x0C>;
+			id = <0>; /* matching sensor id */
 		};
 	};
 
@@ -1284,18 +1349,12 @@
 
 	hsi2c_4: hsi2c@138B0000 {
 		gpios = <&gpf1 0 0 &gpf1 1 0>;
-		status = "okay";
+		status = "disabled";
 		samsung,i2c-sda-delay = <100>;
 		samsung,i2c-max-bus-freq = <400000>;
 
 		pinctrl-names = "default";
 		pinctrl-0 = <&hs_i2c4_bus>;
-
-		fimc-is-actuator@18 {
-			compatible = "samsung,exynos5-fimc-is-actuator-dw9807";
-			reg = <0x0C>;
-			id = <0>; /* matching sensor id */
-		};
 	};
 
 	hsi2c_5: hsi2c@138C0000 {
@@ -1378,17 +1437,18 @@
 	decon_fb@14830000 {
 		psr_mode = <0>;		/* 0: video mode, 1: DP command mode, 2: MIPI command mode */
 		trig_mode = <1>;	/* 0: hw trigger, 1: sw trigger */
-		disp-pll-clk = <75000000>;
-		disp-vclk = <75000000>;
+		disp-pll-clk = <38000000>;
+		disp-vclk = <38000000>;
 		disp-eclk = <200000000>;
 		disp-dvfs = <200000>;
 		status = "okay";
 	};
 
 	dsim_0: dsim@14800000 {
-		lcd_info = <&s6e8aa5x01>;
+		lcd_info = <&s6d78a0>;
 		decon_board = <&decon_board_list>;
 		status = "okay";
+		data_lane_cnt = <2>;
 	};
 
 	decon_board_list: decon_board_list {
@@ -1410,22 +1470,30 @@
 		};
 	};
 
-	s6e8aa5x01: s6e8aa5x01_hd {
+	
+	s6d78a0: s6d78a0_qhd {
 		mode = <0>; /* 0: video mode, 1: DP command mode, 2: MIPI command mode */
-		/* HD(720 x 1280) */
-		panel_name = "s6e8aa5x01";
-		resolution = <720 1280>;
-		size = <65 115>;	/* 64.62 114.88*/
+		/* HD(540 x 960) */
+		panel_name = "s6d78a0";
+		resolution = <540 960>;
+		size = <62 110>;
 		ddi_type = <0>;
 		timing,refresh = <60>;
 		/* HBP HFP HSW */
-		timing,h-porch = <60 160 20>;
+		timing,h-porch = <35 35 28>;
 		/* VBP VFP VSW */
-		timing,v-porch = <8 14 2>;
-		timing,dsi-hs-clk = <500>;
+		timing,v-porch = <6 8 2>;
+		timing,dsi-hs-clk = <460>;
 		timing,dsi-escape-clk = <16>;
-		timing,pms = <1 77 2>;
+		timing,pms = <4 283 2>;
 		clklane_onoff = <0>;
+		
+		backlight_info = <&backlight>;
+	};
+
+	backlight: ktd3102-bl {
+		bl-ctrl = <&gpd3 1 0x1>;
+		bl-pwm = <&gpc0 1 0x1>;
 	};
 
 	sec_thermistor@0 {

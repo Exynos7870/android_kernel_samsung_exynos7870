@@ -833,6 +833,15 @@
 			samsung,pin-pud = <3>;
 			samsung,pin-drv = <0>;
 		};
+
+		/* HSI2C_SPI_FRONTFROM */
+		hs_i2c2_2_bus: hs-i2c2-2-bus {
+		   samsung,pins = "gpf4-2", "gpf4-3";
+		   samsung,pin-function = <3>;
+		   samsung,pin-pud = <0>;
+		   samsung,pin-drv = <0>;
+		};
+
 		/* SPI_FRONTFROM */
 
 		/delete-node/ spi4-bus;

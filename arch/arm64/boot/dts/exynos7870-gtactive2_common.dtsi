@@ -9,8 +9,8 @@
  * published by the Free Software Foundation.
 */
 
-#include "exynos7870.dtsi"
 #include "exynos7870-rmem-3000MB-WUXGA.dtsi"
+#include "exynos7870.dtsi"
 #include "exynos7870-gtactive2lte-common-ccic-s2mm005_01.dtsi"
 
 / {
@@ -425,7 +425,7 @@
 
 	i2c@13870000 {
 		status = "okay";
-		clock-frequency = <400000>;
+		samsung,i2c-max-bus-freq = <400000>;
 
 		sm5705@49 {
 			status = "okay";
@@ -467,6 +467,7 @@
 			muic-universal,chip_name = "sm,sm5705";
 			muic-universal,irq-gpio = <&gpa2 6 0>;
 			muic-universal,wakeup;
+			muic,undefined_range;
 
 			usb-id-ctr = <&gpc6 3 0>;
 			mux-sel = <&gpc5 1 0>;
@@ -483,19 +484,20 @@
 					"-HMT:49.9K",
 					"+POGO:49.9K",
 					"-Audiodock:64.9K",
-					"+USB LANHUB:80.07K",
+					"-USB LANHUB:80.07K",
 					"-Charging Cable:102K",
 					"-Universal Multimedia dock:121K",
 					"+Jig USB Off:255K",
 					"+Jig USB On:301K",
-					"+Deskdock:365K",
-					"+TYPE2 Charger:442K",
+					"-Deskdock:365K",
+					"-TYPE2 Charger:442K",
 					"+Jig UART Off:523K",
 					"+Jig UART On:619K",
 					"+TA:OPEN",
 					"+USB:OPEN",
 					"+CDP:OPEN",
-					"+Undefined Charging:XXX";
+					"+Charging POGO VB:OPEN",
+					"-Undefined Charging:XXX";
 	};
 
 	i2c@13840000 {
@@ -516,7 +518,8 @@
 			stm,regulator_dvdd = "tsp_dvdd";
 			stm,regulator_avdd = "tsp_avdd";
 			stm,firmware_name = "tsp_stm/fts8cd56_gtactive2.fw";
-			stm,pat_function = <1>;
+			stm,pat_function = <2>;
+			stm,afe_base = <0xE881>;
 		};
 	};
 
@@ -1781,6 +1784,13 @@
 			sec_vib,max_timeout = <10000>;
 			sec_vib,ldo_type = <1>;		/* 0: pmic ldo, 1: external ldo */
 			sec_vib,ldo_en = <&gpf4 0 0>;
+		};
+	};
+
+	i2c@13850000 {
+		usbpd-s2mm005@33 {
+			compatible = "sec-s2mm005,i2c";
+			usbpd,skip-ccic-fwupdate;
 		};
 	};
 };

@@ -32,6 +32,7 @@ choice
 	depends on MALI_T83X
 	default MALI_R12P0 if DDK_VERSION_OS = "m"
 	default MALI_R15P0 if DDK_VERSION_OS = "n"
+	default MALI_R15P0 if DDK_VERSION_OS = "o"
 	help
 	  Select the gpu support version.
 

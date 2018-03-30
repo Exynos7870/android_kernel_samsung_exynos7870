@@ -679,7 +679,7 @@ static void s2mu005_muic_set_water_wa(struct s2mu005_muic_data *muic_data, bool 
 				S2MU005_REG_MUIC_LDOADC_VSETH, LDOADC_VSET_MASK, 0, LDOADC_VSET_1_2V);
 		usleep_range(WATER_TOGGLE_WA_MIN_DURATION_US, WATER_TOGGLE_WA_MAX_DURATION_US);
 		s2mu005_i2c_update_bit(i2c,
-				S2MU005_REG_MUIC_LDOADC_VSETH, LDOADC_VSET_MASK, 0, LDOADC_VSET_1_4V);
+				S2MU005_REG_MUIC_LDOADC_VSETH, LDOADC_VSET_MASK, 0, LDOADC_VSET_1_5V);
 	} else {
 		/* W/A unapply */
 		s2mu005_i2c_update_bit(i2c,
@@ -945,6 +945,34 @@ static int attach_jig_usb_boot_on_off(struct s2mu005_muic_data *muic_data)
 	return ret;
 }
 
+#ifdef CONFIG_MUIC_S2MU005_INNER_BATTERY
+/* Power-off SW work-around by disconnecting JIG cable for EVT4
+ * in case of In-battery model
+ */
+static void s2mu005_muic_power_off(struct s2mu005_muic_data *muic_data, int on)
+{
+	struct i2c_client *i2c = muic_data->i2c;
+	int ret = 0;
+
+	if (muic_data->muic_version >= 4) {
+		if (on) {
+			/* 0x27[0]=0 */
+			ret = s2mu005_i2c_read_byte(i2c, 0x27);
+			ret |= 0x30;
+			s2mu005_i2c_write_byte(i2c, 0x27, (u8)ret);
+		} else {
+			/* 0x27[0]=1 : default */
+			ret = s2mu005_i2c_read_byte(i2c, 0x27);
+			ret &= ~0x30;
+			ret |= 0x10;
+			s2mu005_i2c_write_byte(i2c, 0x27, (u8)ret);
+		}
+	}
+	pr_info("%s:%s: 0x27:0x%x, rev_id(%d)\n", MUIC_DEV_NAME,
+			__func__, ret, muic_data->muic_version);
+}
+#endif
+
 static void s2mu005_muic_handle_attach(struct s2mu005_muic_data *muic_data,
 			muic_attached_dev_t new_dev, int adc, u8 vbvolt)
 {
@@ -975,6 +1003,9 @@ static void s2mu005_muic_handle_attach(struct s2mu005_muic_data *muic_data,
 #if defined(CONFIG_SEC_FACTORY) && defined(CONFIG_MUIC_S2MU005_DISCHARGING_WA)		
 	case ATTACHED_DEV_CARKIT_MUIC:
 #endif
+#ifdef CONFIG_MUIC_S2MU005_INNER_BATTERY
+		s2mu005_muic_power_off(muic_data, 0);
+#endif
 		s2mu005_muic_handle_detach(muic_data);
                 break;
 	case ATTACHED_DEV_DESKDOCK_MUIC:
@@ -984,6 +1015,9 @@ static void s2mu005_muic_handle_attach(struct s2mu005_muic_data *muic_data,
 		case ATTACHED_DEV_DESKDOCK_VB_MUIC:
 			break;
 		default:
+#ifdef CONFIG_MUIC_S2MU005_INNER_BATTERY
+		s2mu005_muic_power_off(muic_data, 0);
+#endif
 			s2mu005_muic_handle_detach(muic_data);
 			break;
 		}
@@ -1010,6 +1044,9 @@ static void s2mu005_muic_handle_attach(struct s2mu005_muic_data *muic_data,
 		break;
 	case ATTACHED_DEV_JIG_UART_OFF_VB_MUIC:
 	case ATTACHED_DEV_JIG_UART_OFF_MUIC:
+#ifdef CONFIG_MUIC_S2MU005_INNER_BATTERY
+		s2mu005_muic_power_off(muic_data, 1);
+#endif
 		ret = attach_jig_uart_boot_off(muic_data);
 		break;
 	case ATTACHED_DEV_JIG_UART_ON_MUIC:
@@ -1017,10 +1054,13 @@ static void s2mu005_muic_handle_attach(struct s2mu005_muic_data *muic_data,
 		pr_info("%s:%s: 619K -> 523K switch W/A\n", MUIC_DEV_NAME, __func__);
 		ret = attach_jig_uart_boot_off(muic_data);
 		break;
+	case ATTACHED_DEV_JIG_USB_OFF_MUIC:
+#ifdef CONFIG_MUIC_S2MU005_INNER_BATTERY
+		s2mu005_muic_power_off(muic_data, 1);
+#endif
 #if defined(CONFIG_SEC_FACTORY) && defined(CONFIG_MUIC_S2MU005_DISCHARGING_WA)		
 	case ATTACHED_DEV_CARKIT_MUIC:
 #endif
-	case ATTACHED_DEV_JIG_USB_OFF_MUIC:
 	case ATTACHED_DEV_JIG_USB_ON_MUIC:
 		ret = attach_jig_usb_boot_on_off(muic_data);
 		break;

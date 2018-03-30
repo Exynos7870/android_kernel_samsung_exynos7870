@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_sdio.c 699163 2017-05-12 05:18:23Z $
+ * $Id: dhd_sdio.c 727211 2017-10-18 11:04:26Z $
  */
 
 #include <typedefs.h>
@@ -2536,6 +2536,9 @@ dhdsdio_sendfromq(dhd_bus_t *bus, uint maxframes)
 #ifdef DHD_LOSSLESS_ROAMING
 	uint8 *pktdata;
 	struct ether_header *eh;
+#ifdef BDC
+	struct bdc_header *bdc_header;
+#endif
 #endif /* DHD_LOSSLESS_ROAMING */
 
 	DHD_TRACE(("%s: Enter\n", __FUNCTION__));
@@ -2580,6 +2583,7 @@ dhdsdio_sendfromq(dhd_bus_t *bus, uint maxframes)
 			pktdata = (uint8 *)PKTDATA(osh, pkts[i]);
 #ifdef BDC
 			/* Skip BDC header */
+			bdc_header = (struct bdc_header *)pktdata;
 			pktdata += BDC_HEADER_LEN + ((struct bdc_header *)pktdata)->dataOffset;
 #endif
 			eh = (struct ether_header *)pktdata;
@@ -2589,6 +2593,11 @@ dhdsdio_sendfromq(dhd_bus_t *bus, uint maxframes)
 				/* Restore to original priority for 802.1X packet */
 				if (prio == PRIO_8021D_NC) {
 					PKTSETPRIO(pkts[i], dhd->prio_8021x);
+#ifdef BDC
+					/* Restore to original priority in BDC header */
+					bdc_header->priority =
+						(dhd->prio_8021x & BDC_PRIORITY_MASK);
+#endif
 				}
 			}
 #endif /* DHD_LOSSLESS_ROAMING */
@@ -4855,8 +4864,10 @@ dhd_bus_stop(struct dhd_bus *bus, bool enforce_mutex)
 		 */
 		dhd_tcpack_info_tbl_clean(bus->dhd);
 #endif /* DHDTCPACK_SUPPRESS */
+		dhd_os_sdlock_txq(bus->dhd);
 		/* Clear the data packet queues */
 		pktq_flush(osh, &bus->txq, TRUE);
+		dhd_os_sdunlock_txq(bus->dhd);
 	}
 
 	/* Clear any held glomming stuff */
@@ -9908,6 +9919,7 @@ static int
 concate_revision_bcm43455(dhd_bus_t *bus, char *fw_path, char *nv_path)
 {
 	char chipver_tag[10] = {0, };
+	uint32 chip_rev = 0;
 #ifdef SUPPORT_MULTIPLE_BOARD_REV_FROM_DT
 	int base_system_rev_for_nv = 0;
 #endif /* SUPPORT_MULTIPLE_BOARD_REV_FROM_DT */
@@ -9916,6 +9928,15 @@ concate_revision_bcm43455(dhd_bus_t *bus, char *fw_path, char *nv_path)
 	if (bus->sih->chip != BCM4345_CHIP_ID) {
 		DHD_ERROR(("%s:Chip is not BCM43455!\n", __FUNCTION__));
 		return -1;
+	}
+
+	chip_rev = bus->sih->chiprev;
+	if (chip_rev == 0x9) {
+		DHD_ERROR(("----- CHIP 43456 -----\n"));
+		strcat(fw_path, "_c5");
+		strcat(nv_path, "_c5");
+	} else {
+		DHD_ERROR(("----- CHIP 43455  -----\n"));
 	}
 #ifdef SUPPORT_MULTIPLE_BOARD_REV_FROM_DT
 	base_system_rev_for_nv = dhd_get_system_rev();
@@ -9932,32 +9953,33 @@ concate_revision_bcm43455(dhd_bus_t *bus, char *fw_path, char *nv_path)
 static int
 concate_revision_bcm43430(dhd_bus_t *bus, char *fw_path, char *nv_path)
 {
-    uint chipver;
-    char chipver_tag[4] = {0, };
 
-    DHD_TRACE(("%s: BCM43430 Multiple Revision Check\n", __FUNCTION__));
-    if (bus->sih->chip != BCM43430_CHIP_ID) {
-	DHD_ERROR(("%s:Chip is not BCM43430\n", __FUNCTION__));
-	return BCME_ERROR;
-    }
-    chipver = bus->sih->chiprev;
-    DHD_ERROR(("CHIP VER = [0x%x]\n", chipver));
-    if (chipver == 0x0) {
-	DHD_ERROR(("----- CHIP bcm4343S -----\n"));
-	strcat(chipver_tag, "_3s");
-    } else if (chipver == 0x1) {
-	DHD_ERROR(("----- CHIP bcm43438 -----\n"));
-    } else if (chipver == 0x2) {
-	DHD_ERROR(("----- CHIP bcm43436L -----\n"));
-	strcat(chipver_tag, "_36");
-    } else {
-	DHD_ERROR(("----- CHIP bcm43430 unknown revision %d -----\n",
-		    chipver));
-    }
+	uint chipver;
+	char chipver_tag[4] = {0, };
 
-    strcat(fw_path, chipver_tag);
-    strcat(nv_path, chipver_tag);
-    return 0;
+	DHD_TRACE(("%s: BCM43430 Multiple Revision Check\n", __FUNCTION__));
+	if (bus->sih->chip != BCM43430_CHIP_ID) {
+		DHD_ERROR(("%s:Chip is not BCM43430\n", __FUNCTION__));
+		return BCME_ERROR;
+	}
+	chipver = bus->sih->chiprev;
+	DHD_ERROR(("CHIP VER = [0x%x]\n", chipver));
+	if (chipver == 0x0) {
+		DHD_ERROR(("----- CHIP bcm4343S -----\n"));
+		strcat(chipver_tag, "_3s");
+	} else if (chipver == 0x1) {
+		DHD_ERROR(("----- CHIP bcm43438 -----\n"));
+	} else if (chipver == 0x2) {
+		DHD_ERROR(("----- CHIP bcm43436L -----\n"));
+		strcat(chipver_tag, "_36");
+	} else {
+		DHD_ERROR(("----- CHIP bcm43430 unknown revision %d -----\n",
+			chipver));
+	}
+
+	strcat(fw_path, chipver_tag);
+	strcat(nv_path, chipver_tag);
+	return 0;
 }
 
 int

@@ -1774,13 +1774,6 @@ static int st_lsm6ds3_enable_step_c(struct lsm6ds3_data *cdata, bool enable)
 	if (enable)
 		value = ST_LSM6DS3_EN_BIT;
 
-	/* FUNC_EN */
-	err = st_lsm6ds3_write_data_with_mask(cdata,
-					ST_LSM6DS3_CTRL10_ADDR,
-					0x04, value);
-	if (err < 0)
-		return err;
-
 	err = st_lsm6ds3_write_data_with_mask(cdata,
 					ST_LSM6DS3_STEP_COUNTER_EN_ADDR,
 					0x01, value);
@@ -2420,7 +2413,8 @@ static ssize_t st_lsm6ds3_smd_enable_show(struct device *dev,
 	struct input_dev *input = to_input_dev(dev);
 	struct lsm6ds3_data *cdata = input_get_drvdata(input);
 
-	return snprintf(buf, 16, "%d\n", atomic_read(&cdata->wkqueue_en));
+	return snprintf(buf, 16, "%d\n",
+				!!(cdata->sensors_enabled & (1 << ST_INDIO_DEV_SIGN_MOTION)));
 }
 
 static ssize_t st_lsm6ds3_smd_enable_store(struct device *dev,
@@ -2471,8 +2465,8 @@ static ssize_t st_lsm6ds3_tilt_enable_show(struct device *dev,
 	struct input_dev *input = to_input_dev(dev);
 	struct lsm6ds3_data *cdata = input_get_drvdata(input);
 
-	return snprintf(buf, 16, "%d\n", atomic_read(&cdata->wkqueue_en));
-
+	return snprintf(buf, 16, "%d\n",
+			!!(cdata->sensors_enabled & (1 << ST_INDIO_DEV_TILT)));
 }
 
 static ssize_t st_lsm6ds3_tilt_enable_store(struct device *dev,

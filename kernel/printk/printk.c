@@ -2389,7 +2389,8 @@ void console_unlock(void)
 	static u64 seen_seq;
 	unsigned long flags;
 	bool wake_klogd = false;
-	bool do_cond_resched, retry;
+	bool retry;
+	u64 next_seq_in_this_turn;
 
 	if (console_suspended) {
 		up_console_sem();
@@ -2412,6 +2413,7 @@ void console_unlock(void)
 	/* flush buffered message fragment immediately to console */
 	console_cont_flush(text, sizeof(text));
 again:
+	next_seq_in_this_turn = log_next_seq;
 	for (;;) {
 		struct printk_log *msg;
 		size_t len;
@@ -2435,7 +2437,7 @@ again:
 			len = 0;
 		}
 skip:
-		if (console_seq == log_next_seq)
+		if (console_seq >= next_seq_in_this_turn)
 			break;
 
 		msg = log_from_idx(console_idx);

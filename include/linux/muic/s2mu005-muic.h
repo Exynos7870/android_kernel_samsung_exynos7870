@@ -147,8 +147,8 @@
 
 /*
  * Manual Switch
- * D- [7:5] / D+ [4:2] / CHARGER[1] / OTGEN[0]
- * 000: Open all / 001: USB / 010: AUDIO / 011: UART / 100: V_AUDIO
+ * D- [7:5] / D+ [4:2] / RSVD[1] / JIG[0]
+ * 000: Open all / 001: USB / 010: UART / 011: UART2 / 100: V_AUDIO
  * 00: Vbus to Open / 01: Vbus to Charger / 10: Vbus to MIC / 11: Vbus to VBout
  */
 #define MANUAL_SW_DM_SHIFT		5

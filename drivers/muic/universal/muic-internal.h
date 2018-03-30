@@ -155,6 +155,7 @@ typedef struct _muic_data_t {
 	struct delayed_work	init_work;
 	struct delayed_work	usb_work;
 
+	bool			undefined_range;
 	bool			is_dcdtmr_intr;
 	bool			is_rescanned;
 
@@ -181,9 +182,8 @@ typedef struct _muic_data_t {
 	bool			afc_water_disable;
 
 	int			rid;
-#endif
-#ifdef CONFIG_MUIC_POGO
-	int muic_pogo_status;
+
+	bool			rprd;
 #endif
 	int is_afc_5v;
 	bool is_camera_on;
@@ -192,9 +192,4 @@ typedef struct _muic_data_t {
 	int is_afc_device;
 	struct delayed_work	afc_retry_work;
 }muic_data_t;
-
-#ifdef CONFIG_MUIC_POGO
-extern void muic_send_dock_intent(int type);
-extern void muic_set_pogo_status(muic_data_t *pmuic, int status);
-#endif
 #endif /* __MUIC_INTERNAL_H__ */

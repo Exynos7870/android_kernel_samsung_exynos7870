@@ -594,4 +594,5 @@ source "drivers/misc/uart_sel/Kconfig"
 source "drivers/misc/modem_v1/Kconfig"
 source "drivers/misc/gnss_if/Kconfig"
 source "drivers/misc/bhy/Kconfig"
+source "drivers/misc/tzdev/Kconfig"
 endmenu

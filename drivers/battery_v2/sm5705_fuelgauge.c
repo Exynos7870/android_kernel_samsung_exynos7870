@@ -383,7 +383,7 @@ static int sm5705_get_soc_cycle(struct i2c_client *client)
 
 static void sm5705_fg_test_read(struct i2c_client *client)
 {
-	int ret0, ret1, ret2, ret3, ret4, ret5, ret6, ret7;
+	int ret0, ret1, ret2, ret3, ret4, ret5, ret6, ret7, ret8, ret9;
 
 	ret0 = sm5705_fg_i2c_read_word(client, 0xA0);
 	ret1 = sm5705_fg_i2c_read_word(client, 0xAC);
@@ -392,8 +392,9 @@ static void sm5705_fg_test_read(struct i2c_client *client)
 	ret4 = sm5705_fg_i2c_read_word(client, 0xAF);
 	ret5 = sm5705_fg_i2c_read_word(client, 0x28);
 	ret6 = sm5705_fg_i2c_read_word(client, 0x2F);
-	pr_info("%s: 0xA0=0x%04x, 0xAC=0x%04x, 0xAD=0x%04x, 0xAE=0x%04x, 0xAF=0x%04x, 0x28=0x%04x, 0x2F=0x%04x, SM5705_ID=0x%04x\n",
-		__func__, ret0, ret1, ret2, ret3, ret4, ret5, ret6, sm5705_device_id);
+	ret7 = sm5705_fg_i2c_read_word(client, 0x01);
+	pr_info("0xA0=0x%04x, 0xAC=0x%04x, 0xAD=0x%04x, 0xAE=0x%04x, 0xAF=0x%04x, 0x28=0x%04x, 0x2F=0x%04x, 0x01=0x%04x, SM5705_ID=0x%04x\n",
+			ret0, ret1, ret2, ret3, ret4, ret5, ret6, ret7, sm5705_device_id);
 
 	ret0 = sm5705_fg_i2c_read_word(client, 0xB0);
 	ret1 = sm5705_fg_i2c_read_word(client, 0xBC);
@@ -403,8 +404,10 @@ static void sm5705_fg_test_read(struct i2c_client *client)
 	ret5 = sm5705_fg_i2c_read_word(client, 0x85);
 	ret6 = sm5705_fg_i2c_read_word(client, 0x86);
 	ret7 = sm5705_fg_i2c_read_word(client, 0x87);
-	pr_info("%s: 0xB0=0x%04x, 0xBC=0x%04x, 0xBD=0x%04x, 0xBE=0x%04x, 0xBF=0x%04x, 0x85=0x%04x, 0x86=0x%04x, 0x87=0x%04x \n",
-		__func__, ret0, ret1, ret2, ret3, ret4, ret5, ret6, ret7);
+	ret8 = sm5705_fg_i2c_read_word(client, 0x1F);
+	ret9 = sm5705_fg_i2c_read_word(client, 0x94);
+	pr_info("0xB0=0x%04x, 0xBC=0x%04x, 0xBD=0x%04x, 0xBE=0x%04x, 0xBF=0x%04x, 0x85=0x%04x, 0x86=0x%04x, 0x87=0x%04x, 0x1F=0x%04x, 0x94=0x%04x\n",
+			ret0, ret1, ret2, ret3, ret4, ret5, ret6, ret7, ret8, ret9);
 
 	return;
 }
@@ -441,14 +444,16 @@ unsigned int sm5705_get_soc(struct i2c_client *client)
 		soc = ((ret&0xff00)>>8) * 10; //integer bit;
 		soc = soc + (((ret&0x00ff)*10)/256); // integer + fractional bit
 	}
-	fuelgauge->info.batt_soc = soc;
+
+	if (sm5705_abnormal_reset_check(client) < 0)
+	{
+		pr_info("FG init ERROR!! pre_SOC returned!!, read_SOC = %d, pre_SOC = %d\n", soc, fuelgauge->info.batt_soc);
+		return fuelgauge->info.batt_soc;
+	}
 
 #ifdef SM5705_FG_FULL_DEBUG
 	pr_info("read = 0x%x, soc = %d\n", ret, soc);
 #endif
-
-	if (sm5705_abnormal_reset_check(client) < 0)
-		return fuelgauge->info.batt_soc;
 
 	// for low temp power off test
 	if(fuelgauge->info.volt_alert_flag && (fuelgauge->info.temperature < -100))
@@ -457,6 +462,8 @@ unsigned int sm5705_get_soc(struct i2c_client *client)
 		fuelgauge->info.batt_soc = 0;
 		return 0;
 	}
+
+	fuelgauge->info.batt_soc = soc;
 
 	return soc;
 }
@@ -926,10 +933,29 @@ static void sm5705_set_soc_cycle_cfg(struct i2c_client *client)
 	sm5705_fg_i2c_write_word(client, SM5705_REG_SOC_CYCLE_CFG, value);
 }
 
+#ifdef ENABLE_BATT_LONG_LIFE
+int get_v_max_index_by_cycle(struct i2c_client *client)
+{
+	int cycle_index=0, len;
+	struct sec_fuelgauge_info *fuelgauge = i2c_get_clientdata(client);
+
+	for (len = fuelgauge->pdata->num_age_step-1; len >= 0; --len) {
+		if(fuelgauge->chg_full_soc == fuelgauge->pdata->age_data[len].full_condition_soc) {
+			cycle_index=len;
+			break;
+		}
+	}
+	pr_info("%s: chg_full_soc = %d, index = %d \n", __func__, fuelgauge->chg_full_soc, cycle_index);
+
+	return cycle_index;
+}
+#endif
+
 static bool sm5705_fg_reg_init(struct i2c_client *client, int is_surge)
 {
 	int i, j, value, ret;
 	uint8_t table_reg;
+	int write_table[2][16];
 	struct sec_fuelgauge_info *fuelgauge = i2c_get_clientdata(client);
 
 	pr_info("sm5705_fg_reg_init START!!\n");
@@ -962,21 +988,51 @@ static bool sm5705_fg_reg_init(struct i2c_client *client, int is_surge)
 	// TABLE_LEN write & pram unlock
 	sm5705_fg_i2c_write_word(client, SM5705_REG_PARAM_CTRL, SM5705_FG_PARAM_UNLOCK_CODE | SM5705_FG_TABLE_LEN);
 
-	for (i=0; i < TABLE_MAX; i++)
-	{
-		table_reg = SM5705_REG_TABLE_START + (i<<4);
-		for(j=0; j <= SM5705_FG_TABLE_LEN; j++)
-		{
-			sm5705_fg_i2c_write_word(client, (table_reg + j), fuelgauge->info.battery_table[i][j]);
-			msleep(10);
-			if(fuelgauge->info.battery_table[i][j] != sm5705_fg_i2c_read_word(client, (table_reg + j)))
-			{
-				pr_info("TABLE write FAIL retry[%d][%d] = 0x%x : 0x%x\n",
-					i, j, (table_reg + j), fuelgauge->info.battery_table[i][j]);
-				sm5705_fg_i2c_write_word(client, (table_reg + j), fuelgauge->info.battery_table[i][j]);
+#ifdef ENABLE_BATT_LONG_LIFE
+	i = get_v_max_index_by_cycle(client);
+	pr_info("%s: v_max_now is change %x -> %x \n", __func__, fuelgauge->info.v_max_now, fuelgauge->info.v_max_table[i]);
+	pr_info("%s: q_max_now is change %x -> %x \n", __func__, fuelgauge->info.q_max_now, fuelgauge->info.q_max_table[i]);
+	fuelgauge->info.v_max_now = fuelgauge->info.v_max_table[i];
+	fuelgauge->info.q_max_now = fuelgauge->info.q_max_table[i];
+#endif
+	for (i=TABLE_MAX-1; i >= 0; i--){
+		for(j=0; j <= SM5705_FG_TABLE_LEN; j++){
+#ifdef ENABLE_BATT_LONG_LIFE
+			if(i == Q_TABLE){
+				write_table[i][j] = fuelgauge->info.battery_table[i][j];
+				if(j == SM5705_FG_TABLE_LEN){
+					write_table[i][SM5705_FG_TABLE_LEN-1] = fuelgauge->info.q_max_now;
+					write_table[i][SM5705_FG_TABLE_LEN] = fuelgauge->info.q_max_now + (fuelgauge->info.q_max_now/1000);
+				}
+			}else{
+				write_table[i][j] = fuelgauge->info.battery_table[i][j];
+				if(j == SM5705_FG_TABLE_LEN-1){
+					write_table[i][SM5705_FG_TABLE_LEN-1] = fuelgauge->info.v_max_now;
+
+					if(write_table[i][SM5705_FG_TABLE_LEN-1] < write_table[i][SM5705_FG_TABLE_LEN-2]){
+						write_table[i][SM5705_FG_TABLE_LEN-2] = write_table[i][SM5705_FG_TABLE_LEN-1] - 0x18; // ~11.7mV
+						write_table[Q_TABLE][SM5705_FG_TABLE_LEN-2] = (write_table[Q_TABLE][SM5705_FG_TABLE_LEN-1]*99)/100;
+					}
+				}
 			}
-			pr_info("TABLE write OK [%d][%d] = 0x%x : 0x%x\n",
-				i, j, (table_reg + j), fuelgauge->info.battery_table[i][j]);
+#else
+			write_table[i][j] = fuelgauge->info.battery_table[i][j];
+#endif
+		}
+	}
+
+	for (i=0; i < TABLE_MAX; i++){
+		table_reg = SM5705_REG_TABLE_START + (i<<4);
+		for(j=0; j <= SM5705_FG_TABLE_LEN; j++){
+			sm5705_fg_i2c_write_word(client, (table_reg + j), write_table[i][j]);
+			msleep(10);
+			if(write_table[i][j] != sm5705_fg_i2c_read_word(client, (table_reg + j))){
+				pr_info("%s: TABLE write FAIL retry[%d][%d] = 0x%x : 0x%x\n",
+						__func__, i, j, (table_reg + j), write_table[i][j]);
+				sm5705_fg_i2c_write_word(client, (table_reg + j), write_table[i][j]);
+			}
+			pr_info("%s: TABLE write OK [%d][%d] = 0x%x : 0x%x\n",
+					__func__, i, j, (table_reg + j), write_table[i][j]);
 		}
 	}
 
@@ -1053,6 +1109,13 @@ static bool sm5705_fg_reg_init(struct i2c_client *client, int is_surge)
 	// init delay
 	msleep(20);
 
+	// write batt data version
+	value = (fuelgauge->info.data_ver << 4) & SM5705_BATTERY_VERSION;
+	sm5705_fg_i2c_write_word(client, SM5705_REG_RESERVED, value);
+	pr_info("RESERVED = %d : 0x%x\n", SM5705_REG_RESERVED, value);
+
+	pr_info("%s: init_MARK = %d : 0x%x\n", __func__, SM5705_REG_RESET, sm5705_fg_i2c_read_word(client, SM5705_REG_RESET));
+
 	return 1;
 }
 
@@ -1086,6 +1149,13 @@ static bool sm5705_fg_init(struct i2c_client *client, bool is_surge)
 
 	sm5705_set_soc_cycle_cfg(client);
 
+#ifdef ENABLE_BATT_LONG_LIFE
+	fuelgauge->info.q_max_now = sm5705_fg_i2c_read_word(client, 0xBE);
+	pr_info("%s: q_max_now = 0x%x\n", __func__, fuelgauge->info.q_max_now);
+	fuelgauge->info.q_max_now = sm5705_fg_i2c_read_word(client, 0xBE);
+	pr_info("%s: q_max_now = 0x%x\n", __func__, fuelgauge->info.q_max_now);
+#endif
+
 	if(sm5705_fg_check_reg_init_need(client))
 	{
 		sm5705_fg_reg_init(client, is_surge);
@@ -1109,8 +1179,6 @@ static bool sm5705_fg_init(struct i2c_client *client, bool is_surge)
 		sm5705_fg_i2c_write_word(client, SM5705_REG_CURRLCAL_1, fuelgauge->info.curr_lcal_1);
 		sm5705_fg_i2c_write_word(client, SM5705_REG_CURRLCAL_2, fuelgauge->info.curr_lcal_2);
 	}
-
-	fuelgauge->info.is_FG_initialised = 1;
 
 	// get first measure all value
 	//soc
@@ -1139,6 +1207,8 @@ static bool sm5705_fg_init(struct i2c_client *client, bool is_surge)
 	sm5705_fg_buffer_read(client);
 	sm5705_fg_test_read(client);
 
+	fuelgauge->info.is_FG_initialised = 1;
+
 	return true;
 }
 
@@ -1152,7 +1222,8 @@ static int sm5705_abnormal_reset_check(struct i2c_client *client)
 	if((sm5705_fg_check_reg_init_need(client) && (fuelgauge->info.is_FG_initialised == 1)) || (reset_read == 0))
 	{
 		cntl_read = sm5705_fg_i2c_read_word(client, SM5705_REG_CNTL);
-		pr_info("SM5705 FG abnormal case!!!! SM5705_REG_CNTL : 0x%x, reset_read : 0x%x\n", cntl_read, reset_read);
+		pr_info("%s: SM5705 FG abnormal case!!!! SM5705_REG_CNTL : 0x%x, is_FG_initialised : %d, reset_read : 0x%x\n",
+			__func__, cntl_read, fuelgauge->info.is_FG_initialised, reset_read);
 		// SW reset code
 		if(sm5705_fg_i2c_verified_write_word(client, SM5705_REG_RESET, SW_RESET_OTP_CODE) < 0)
 		{
@@ -1170,6 +1241,83 @@ static int sm5705_abnormal_reset_check(struct i2c_client *client)
 	}
 	return 0;
 }
+
+#ifdef ENABLE_FULL_OFFSET
+void sm5705_adabt_full_offset(struct i2c_client *client)
+{
+	struct sec_fuelgauge_info *fuelgauge = i2c_get_clientdata(client);
+	int fg_temp_gap;
+	int full_offset, i_offset, sign_offset, curr;
+	int curr_off, sign_origin, i_origin;
+	int curr, sign_curr, i_curr;
+
+#ifdef SM5705_FG_FULL_DEBUG
+	pr_info("flag_charge_health=%d, flag_full_charge=%d\n", fuelgauge->info.flag_charge_health, fuelgauge->info.flag_full_charge);
+#endif
+	if(fuelgauge->info.flag_charge_health && fuelgauge->info.flag_full_charge)
+	{
+		fg_temp_gap = (fuelgauge->info.temp_fg/10) - fuelgauge->info.temp_std;
+		if(abs(fg_temp_gap) < 10)
+		{
+			curr = sm5705_fg_i2c_read_word(client, SM5705_REG_CURRENT);
+			sign_curr = curr & 0x8000;
+			i_curr = (curr & 0x7FFF)>>1;
+			if(sign_curr == 1)
+			{
+				i_curr = -i_curr;
+			}
+
+			curr_off = sm5705_fg_i2c_read_word(client, SM5705_REG_CURR_OFF);
+			sign_origin = curr_off & 0x0080;
+			i_origin = curr_off & 0x007F;
+			if(sign_origin == 1)
+			{
+				i_origin = -i_origin;
+			}
+
+			full_offset = i_origin - i_curr;
+			if(full_offset < 0)
+			{
+				i_offset = -full_offset;
+				sign_offset = 1;
+			}
+			else
+			{
+				i_offset = full_offset;
+				sign_offset = 0;
+			}
+
+			pr_info("curr=%x, curr_off=%x, i_offset=%x, sign_offset=%d, full_offset_margin=%x, full_extra_offset=%x\n",
+				curr, curr_off, i_offset, sign_offset, fuelgauge->info.full_offset_margin, fuelgauge->info.full_extra_offset);
+			if(i_offset < ((fuelgauge->info.full_offset_margin<<10)/1000))
+			{
+				if(sign_offset == 1)
+				{
+					i_offset = -i_offset;
+				}
+
+				i_offset = i_offset + ((fuelgauge->info.full_extra_offset<<10)/1000);
+
+				if(i_offset <= 0)
+				{
+					full_offset = -i_offset;
+				}
+				else
+				{
+					full_offset = i_offset|0x0080;
+				}
+				fuelgauge->info.curr_offset = full_offset;
+				sm5705_fg_i2c_write_word(client, SM5705_REG_CURR_OFF, full_offset);
+				pr_info("%s: LAST i_offset=%x, sign_offset=%x, full_offset=%x\n", __func__, i_offset, sign_offset, full_offset);
+			}
+
+		}
+
+	}
+
+	return;
+}
+#endif
 
 void sm5705_vbatocv_check(struct i2c_client *client)
 {
@@ -1322,6 +1470,10 @@ static int sm5705_cal_carc (struct i2c_client *client)
 
 	sm5705_vbatocv_check(client);
 
+#ifdef ENABLE_FULL_OFFSET
+	sm5705_adabt_full_offset(client);
+#endif
+
 	if(fuelgauge->is_charging || (fuelgauge->info.batt_current < LIMIT_N_CURR_MIXFACTOR))
 	{
 		mix_factor = fuelgauge->info.rs_value[1];
@@ -1447,8 +1599,11 @@ static int sm5705_get_all_value(struct i2c_client *client)
 #ifdef SM5705_FG_FULL_DEBUG
 	pr_info("get POWER_SUPPLY_PROP_HEALTH = 0x%x\n", value.intval);
 #endif
-	fuelgauge->is_charging = ((value.intval == POWER_SUPPLY_HEALTH_GOOD) |
-		fuelgauge->ta_exist) && (fuelgauge->info.batt_current>=30);
+	fuelgauge->info.flag_charge_health =
+		(value.intval == POWER_SUPPLY_HEALTH_GOOD) ? 1 : 0;
+
+	fuelgauge->is_charging = (fuelgauge->info.flag_charge_health |
+		fuelgauge->ta_exist) && (fuelgauge->info.batt_current >= 30);
 
 	// check charger status
 	psy_do_property("sm5705-charger", get,
@@ -1476,13 +1631,14 @@ static int sm5705_get_all_value(struct i2c_client *client)
 
 	sm5705_fg_test_read(client);
 
-	pr_info("is_chg=%d, ta_exist=%d, v=%d, v_avg=%d, i=%d, i_avg=%d, ocv=%d, "
-		"fg_t=%d, b_t=%d, cycle=%d, soc=%d, state=0x%x, I_EST=0x%x, Q_EST=0x%x\n",
-		fuelgauge->is_charging, fuelgauge->ta_exist, fuelgauge->info.batt_voltage,
-		fuelgauge->info.batt_avgvoltage, fuelgauge->info.batt_current, fuelgauge->info.batt_avgcurrent,
-		fuelgauge->info.batt_ocv, fuelgauge->info.temp_fg, fuelgauge->info.temperature, fuelgauge->info.batt_soc_cycle,
-		fuelgauge->info.batt_soc, sm5705_fg_i2c_read_word(client, SM5705_REG_OCV_STATE),
-		sm5705_fg_i2c_read_word(client, SM5705_REG_CURRENT_EST), sm5705_fg_i2c_read_word(client, SM5705_REG_Q_EST));
+	pr_info("chg_h=%d, chg_f=%d, chg_s=%d, is_chg=%d, ta_exist=%d, "
+		"v=%d, v_avg=%d, i=%d, i_avg=%d, ocv=%d, fg_t=%d, b_t=%d, cycle=%d, soc=%d, state=0x%x\n",
+		fuelgauge->info.flag_charge_health, fuelgauge->info.flag_full_charge,
+		fuelgauge->info.flag_chg_status, fuelgauge->is_charging, fuelgauge->ta_exist,
+		fuelgauge->info.batt_voltage, fuelgauge->info.batt_avgvoltage,
+		fuelgauge->info.batt_current, fuelgauge->info.batt_avgcurrent, fuelgauge->info.batt_ocv,
+		fuelgauge->info.temp_fg, fuelgauge->info.temperature, fuelgauge->info.batt_soc_cycle,
+		fuelgauge->info.batt_soc, sm5705_fg_i2c_read_word(client, SM5705_REG_OCV_STATE));
 
     return 0;
 }
@@ -1537,10 +1693,56 @@ static int get_battery_id(struct sec_fuelgauge_info *fuelgauge)
 
 #define DECL_PARAM_PROP(_id, _name) {.id = _id, .name = _name,}
 
+#if defined(CONFIG_BATTERY_AGE_FORECAST)
+static int temp_parse_dt(struct sec_fuelgauge_info *fuelgauge)
+{
+	struct device_node *np = of_find_node_by_name(NULL, "battery");
+	int len=0, ret;
+	const u32 *p;
+
+	if (np == NULL) {
+		pr_err("%s np NULL\n", __func__);
+	} else {
+		p = of_get_property(np, "battery,age_data", &len);
+		if (p) {
+			fuelgauge->pdata->num_age_step = len / sizeof(sec_age_data_t);
+			fuelgauge->pdata->age_data = kzalloc(len, GFP_KERNEL);
+			ret = of_property_read_u32_array(np, "battery,age_data",
+					(u32 *)fuelgauge->pdata->age_data, len/sizeof(u32));
+			if (ret) {
+				pr_err("%s failed to read battery->pdata->age_data: %d\n",
+						__func__, ret);
+				kfree(fuelgauge->pdata->age_data);
+				fuelgauge->pdata->age_data = NULL;
+				fuelgauge->pdata->num_age_step = 0;
+			}
+			pr_info("%s num_age_step : %d\n", __func__, fuelgauge->pdata->num_age_step);
+			for (len = 0; len < fuelgauge->pdata->num_age_step; ++len) {
+				pr_info("[%d/%d]cycle:%d, float:%d, full_v:%d, recharge_v:%d, soc:%d\n",
+						len, fuelgauge->pdata->num_age_step-1,
+						fuelgauge->pdata->age_data[len].cycle,
+						fuelgauge->pdata->age_data[len].float_voltage,
+						fuelgauge->pdata->age_data[len].full_condition_vcell,
+						fuelgauge->pdata->age_data[len].recharge_condition_vcell,
+						fuelgauge->pdata->age_data[len].full_condition_soc);
+			}
+		} else {
+			fuelgauge->pdata->num_age_step = 0;
+			pr_err("%s there is not age_data\n", __func__);
+		}
+	}
+	return 0;
+}
+#endif
+
 static int sm5705_fg_parse_dt(struct sec_fuelgauge_info *fuelgauge)
 {
 	char prop_name[PROPERTY_NAME_SIZE];
 	int battery_id = -1;
+#ifdef ENABLE_BATT_LONG_LIFE
+	int v_max_table[5];
+	int q_max_table[5];
+#endif
 	int table[16];
 	int rce_value[3];
 	int rs_value[5];
@@ -1555,6 +1757,9 @@ static int sm5705_fg_parse_dt(struct sec_fuelgauge_info *fuelgauge)
 	int set_temp_poff[4];
 	int curr_offset[2];
 	int curr_lcal[4];
+#ifdef ENABLE_FULL_OFFSET
+	int full_offset[2];	
+#endif
 
 	int ret;
 	int i, j;
@@ -1630,6 +1835,46 @@ static int sm5705_fg_parse_dt(struct sec_fuelgauge_info *fuelgauge)
 	if (battery_id == -1)
 		battery_id = get_battery_id(fuelgauge);
 	PINFO("battery id = %d\n", battery_id);
+
+#ifdef ENABLE_BATT_LONG_LIFE
+	snprintf(prop_name, PROPERTY_NAME_SIZE, "battery%d,%s", battery_id, "v_max_table");
+	ret = of_property_read_u32_array(np, prop_name, v_max_table, fuelgauge->pdata->num_age_step);
+
+	if(ret < 0){
+		PINFO("Can get prop %s (%d)\n", prop_name, ret);
+
+		for (i = 0; i < fuelgauge->pdata->num_age_step; i++){
+			fuelgauge->info.v_max_table[i] = fuelgauge->info.battery_table[DISCHARGE_TABLE][SM5705_FG_TABLE_LEN-1];
+			PINFO("%s = <v_max_table[%d] 0x%x>\n", prop_name, i, fuelgauge->info.v_max_table[i]);
+		}
+	}else{
+		for (i = 0; i < fuelgauge->pdata->num_age_step; i++){
+			fuelgauge->info.v_max_table[i] = v_max_table[i];
+			PINFO("%s = <v_max_table[%d] 0x%x>\n", prop_name, i, fuelgauge->info.v_max_table[i]);
+		}
+	}
+
+	snprintf(prop_name, PROPERTY_NAME_SIZE, "battery%d,%s", battery_id, "q_max_table");
+	ret = of_property_read_u32_array(np, prop_name, q_max_table, fuelgauge->pdata->num_age_step);
+
+	if(ret < 0){
+		PINFO("Can get prop %s (%d)\n", prop_name, ret);
+
+		for (i = 0; i < fuelgauge->pdata->num_age_step; i++){
+			fuelgauge->info.q_max_table[i] = 100;
+			PINFO("%s = <q_max_table[%d] %d>\n", prop_name, i, fuelgauge->info.q_max_table[i]);
+		}
+	}else{
+		for (i = 0; i < fuelgauge->pdata->num_age_step; i++){
+			fuelgauge->info.q_max_table[i] = q_max_table[i];
+			PINFO("%s = <q_max_table[%d] %d>\n", prop_name, i, fuelgauge->info.q_max_table[i]);
+		}
+	}
+	fuelgauge->chg_full_soc = fuelgauge->pdata->age_data[0].full_condition_soc;
+	fuelgauge->info.v_max_now = fuelgauge->info.v_max_table[0];
+	fuelgauge->info.q_max_now = fuelgauge->info.q_max_table[0];
+	PINFO("%s = <v_max_now = 0x%x>, <q_max_now = 0x%x>, <chg_full_soc = %d>\n", prop_name, fuelgauge->info.v_max_now, fuelgauge->info.q_max_now, fuelgauge->chg_full_soc);
+#endif
 
 	// get battery_table
 	for (i = DISCHARGE_TABLE; i < TABLE_MAX; i++) {
@@ -1769,6 +2014,17 @@ static int sm5705_fg_parse_dt(struct sec_fuelgauge_info *fuelgauge)
 
 	PINFO("%s = <%d 0x%x>\n", prop_name, fuelgauge->info.en_auto_curr_offset, fuelgauge->info.curr_offset);
 
+#ifdef ENABLE_FULL_OFFSET
+	snprintf(prop_name, PROPERTY_NAME_SIZE, "battery%d,%s", battery_id, "full_offset");
+	ret = of_property_read_u32_array(np, prop_name, full_offset, 2);
+	if (ret < 0)
+		PINFO("Can get prop %s (%d)\n", prop_name, ret);
+	fuelgauge->info.full_offset_margin = full_offset[0];
+	fuelgauge->info.full_extra_offset = full_offset[1];
+
+	PINFO("%s = <%d %d>\n", prop_name, fuelgauge->info.full_offset_margin, fuelgauge->info.full_extra_offset);	
+#endif
+
 	snprintf(prop_name, PROPERTY_NAME_SIZE, "battery%d,%s", battery_id, "p_curr_cal");
 	ret = of_property_read_u32_array(np, prop_name, &fuelgauge->info.p_curr_cal, 1);
 	if (ret < 0)
@@ -1888,6 +2144,13 @@ static int sm5705_fg_parse_dt(struct sec_fuelgauge_info *fuelgauge)
 		prop_name,
 		fuelgauge->info.n_tem_poff, fuelgauge->info.n_tem_poff_offset,
 		fuelgauge->info.l_tem_poff, fuelgauge->info.l_tem_poff_offset);
+
+	// batt data version
+	snprintf(prop_name, PROPERTY_NAME_SIZE, "battery%d,%s", battery_id, "data_ver");
+	ret = of_property_read_u32_array(np, prop_name, &fuelgauge->info.data_ver, 1);
+	if (ret < 0)
+		PINFO("Can get prop %s (%d)\n", prop_name, ret);
+	PINFO("%s = <%d>\n", prop_name, fuelgauge->info.data_ver);
 
 	return 0;
 }
@@ -2123,7 +2386,7 @@ static void sm5705_fg_reset_capacity_by_jig_connection(struct sec_fuelgauge_info
 	pr_info("(Jig Connection)\n");
 
 	ret = sm5705_fg_i2c_read_word(fuelgauge->client, SM5705_REG_RESERVED);
-	ret |= 0x0001;
+	ret |= SM5705_JIG_CONNECTED;
 	sm5705_fg_i2c_write_word(fuelgauge->client, SM5705_REG_RESERVED, ret);
 	/* If JIG is attached, the voltage is set as 1079 */
 	value.intval = 1079;
@@ -2264,18 +2527,35 @@ static int sm5705_fg_set_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
-		if (val->intval == POWER_SUPPLY_STATUS_FULL)
+		if (val->intval == POWER_SUPPLY_STATUS_FULL) {
 			fuelgauge->info.flag_full_charge = 1;
-		break;
+#ifdef ENABLE_BATT_LONG_LIFE
+			pr_info("%s: POWER_SUPPLY_STATUS_FULL : q_max_now = 0x%x \n", __func__, fuelgauge->info.q_max_now);
+			if(fuelgauge->info.q_max_now != 
+					fuelgauge->info.q_max_table[get_v_max_index_by_cycle(fuelgauge->client)]){
+				if (!sm5705_fg_reset(fuelgauge->client))
+					return -EINVAL;
+			}
+#endif
+		}
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		if (fuelgauge->pdata->capacity_calculation_type &
 				SEC_FUELGAUGE_CAPACITY_TYPE_DYNAMIC_SCALE) {
 #if defined(CONFIG_PREVENT_SOC_JUMP)
-				sm5705_fg_calculate_dynamic_scale(fuelgauge, val->intval);
+			sm5705_fg_calculate_dynamic_scale(fuelgauge, val->intval);
 #else
-				sm5705_fg_calculate_dynamic_scale(fuelgauge, 100);
+			sm5705_fg_calculate_dynamic_scale(fuelgauge, 100);
 #endif
+
+#ifdef ENABLE_BATT_LONG_LIFE
+			pr_info("%s: POWER_SUPPLY_PROP_CHARGE_FULL : q_max_now = 0x%x \n", __func__, fuelgauge->info.q_max_now);
+			if(fuelgauge->info.q_max_now != 
+					fuelgauge->info.q_max_table[get_v_max_index_by_cycle(fuelgauge->client)]){
+				if (!sm5705_fg_reset(fuelgauge->client))
+					return -EINVAL;
 			}
+#endif
+		}
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		fuelgauge->cable_type = val->intval;
@@ -2313,6 +2593,13 @@ static int sm5705_fg_set_property(struct power_supply *psy,
                 psy_do_property("sm5705-charger", set, POWER_SUPPLY_PROP_PRESENT, value);
 		break;
           }
+#if defined(CONFIG_BATTERY_AGE_FORECAST)
+	case POWER_SUPPLY_PROP_CAPACITY_LEVEL:
+	  pr_info("%s: full condition soc changed, %d -> %d\n",
+			  __func__, fuelgauge->chg_full_soc, val->intval);
+	  fuelgauge->chg_full_soc = val->intval;
+	  break;
+#endif
 	default:
 		return -EINVAL;
 	}
@@ -2456,6 +2743,9 @@ static int sm5705_fuelgauge_probe(struct i2c_client *client,
 
 		mutex_init(&fuelgauge->info.param_lock);
 		mutex_lock(&fuelgauge->info.param_lock);
+#if defined(CONFIG_BATTERY_AGE_FORECAST)
+		temp_parse_dt(fuelgauge);
+#endif
 		error = sm5705_fg_parse_dt(fuelgauge);
 		mutex_unlock(&fuelgauge->info.param_lock);
 		if (error < 0) {

@@ -35,7 +35,8 @@
 
 #include "gadget_chips.h"
 
-#include "../function/u_fs.h"
+
+#include "../function/f_fs.c"
 #include "../function/f_audio_source.c"
 #include "../function/f_midi.c"
 #include "../function/f_mass_storage.c"
@@ -468,6 +469,15 @@ static void functionfs_closed_callback(struct ffs_data *ffs)
 	usb_put_function(config->func);
 
 	mutex_unlock(&dev->mutex);
+}
+
+static void *functionfs_acquire_dev_callback(const char *dev_name)
+{
+	return 0;
+}
+
+static void functionfs_release_dev_callback(struct ffs_data *ffs_data)
+{
 }
 
 struct adb_data {

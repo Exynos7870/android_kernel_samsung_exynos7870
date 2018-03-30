@@ -29,7 +29,7 @@
 #define SM5705_SUPPORT_OTG_CONTROL        - New A series dosen't support, It's MUST be disabled
 
 /* SM5705 Charger - RESET condition configuaration */
-#define SM5705_I2C_RESET_ACTIVATE
+//#define SM5705_I2C_RESET_ACTIVATE
 //#define SM5705_MANUAL_RESET_ACTIVATE
 //#define SM5705_MANUAL_RESET_TIMER                   SM5705_MANUAL_RESET_TIME_7s
 //#define SM5705_WATCHDOG_RESET_ACTIVATE

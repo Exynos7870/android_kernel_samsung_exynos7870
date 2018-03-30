@@ -492,7 +492,7 @@ static void init_dynamic_aid(struct lcd_info *lcd)
 	lcd->daid.m_gray = m_gray;
 }
 
-/* V255(msb is seperated) ~ VT -> VT ~ V255(msb is not seperated) and signed bit */
+/* V255(msb is separated) ~ VT -> VT ~ V255(msb is not separated) and signed bit */
 static void reorder_reg2mtp(u8 *reg, int *mtp)
 {
 	int j, c, v;
@@ -514,7 +514,7 @@ static void reorder_reg2mtp(u8 *reg, int *mtp)
 	}
 }
 
-/* VT ~ V255(msb is not seperated) -> V255(msb is seperated) ~ VT */
+/* VT ~ V255(msb is not separated) -> V255(msb is separated) ~ VT */
 /* array idx zero (reg[0]) is reserved for gamma command address (0xCA) */
 static void reorder_gamma2reg(int *gamma, u8 *reg)
 {
@@ -772,6 +772,11 @@ static int ea8061s_init(struct lcd_info *lcd)
 	DSI_WRITE(SEQ_TEST_KEY_ON_F0, ARRAY_SIZE(SEQ_TEST_KEY_ON_F0));
 	DSI_WRITE(SEQ_TEST_KEY_ON_FC, ARRAY_SIZE(SEQ_TEST_KEY_ON_FC));
 
+#ifdef CONFIG_SEC_FACTORY
+	ret |= ea8061s_read_id(lcd);
+	ret |= ea8061s_read_coordinate(lcd);
+#endif
+
 	/* common setting */
 	DSI_WRITE(SEQ_HSYNC_GEN_ON, ARRAY_SIZE(SEQ_HSYNC_GEN_ON));
 	DSI_WRITE(SEQ_SOURCE_SLEW, ARRAY_SIZE(SEQ_SOURCE_SLEW));
@@ -876,8 +881,8 @@ static int fb_notifier_callback(struct notifier_block *self,
 
 	dev_info(&lcd->ld->dev, "%s: %02lx, %d\n", __func__, event, fb_blank);
 
-	if (evdata->info->node != 0)
-		return 0;
+	if (evdata->info->node)
+		return NOTIFY_DONE;
 
 	if (event == FB_EARLY_EVENT_BLANK && fb_blank == FB_BLANK_POWERDOWN)
 		pinctrl_enable(lcd, 0);

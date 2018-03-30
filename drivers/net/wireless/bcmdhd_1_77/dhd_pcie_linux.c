@@ -24,7 +24,7 @@
  *
  * <<Broadcom-WL-IPTag/Open:>>
  *
- * $Id: dhd_pcie_linux.c 699311 2017-05-12 16:48:13Z $
+ * $Id: dhd_pcie_linux.c 727674 2017-10-23 03:25:35Z $
  */
 
 
@@ -381,6 +381,7 @@ static int dhdpcie_pm_prepare(struct device *dev)
 		DHD_DISABLE_RUNTIME_PM(bus->dhd);
 	}
 
+	bus->chk_pm = TRUE;
 	return 0;
 }
 
@@ -403,8 +404,10 @@ static int dhdpcie_pm_resume(struct device *dev)
 	DHD_BUS_BUSY_SET_RESUME_IN_PROGRESS(bus->dhd);
 	DHD_GENERAL_UNLOCK(bus->dhd, flags);
 
-	if (!bus->dhd->dongle_reset)
+	if (!bus->dhd->dongle_reset) {
 		ret = dhdpcie_set_suspend_resume(bus, FALSE);
+		bus->chk_pm = FALSE;
+	}
 
 	DHD_GENERAL_LOCK(bus->dhd, flags);
 	DHD_BUS_BUSY_CLEAR_RESUME_IN_PROGRESS(bus->dhd);
@@ -1024,6 +1027,12 @@ dhdpcie_get_pcieirq(struct dhd_bus *bus, unsigned int *irq)
 #define PRINTF_RESOURCE	"0x%08x"
 #endif
 
+#ifdef EXYNOS_PCIE_MODULE_PATCH
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+extern struct pci_saved_state *bcm_pcie_default_state;
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0) */
+#endif /* EXYNOS_MODULE_PATCH */
+
 /*
 
 Name:  osl_pci_get_resource
@@ -1049,7 +1058,12 @@ int dhdpcie_get_resource(dhdpcie_info_t *dhdpcie_info)
 	struct pci_dev *pdev = NULL;
 	pdev = dhdpcie_info->dev;
 #ifdef EXYNOS_PCIE_MODULE_PATCH
-	pci_restore_state(pdev);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+	if (bcm_pcie_default_state) {
+		pci_load_saved_state(pdev, bcm_pcie_default_state);
+		pci_restore_state(pdev);
+	}
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0) */
 #endif /* EXYNOS_MODULE_PATCH */
 	do {
 		if (pci_enable_device(pdev)) {
@@ -1079,6 +1093,14 @@ int dhdpcie_get_resource(dhdpcie_info_t *dhdpcie_info)
 			DHD_ERROR(("%s:ioremap() failed\n", __FUNCTION__));
 			break;
 		}
+#ifdef EXYNOS_PCIE_MODULE_PATCH
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
+		if (bcm_pcie_default_state == NULL) {
+			pci_save_state(pdev);
+			bcm_pcie_default_state = pci_store_saved_state(pdev);
+		}
+#endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0) */
+#endif /* EXYNOS_MODULE_PATCH */
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0))
 		if (!dhd_download_fw_on_driverload) {
@@ -1098,10 +1120,6 @@ int dhdpcie_get_resource(dhdpcie_info_t *dhdpcie_info)
 			}
 		}
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(3, 0, 0) */
-
-#ifdef EXYNOS_PCIE_MODULE_PATCH
-		pci_save_state(pdev);
-#endif /* EXYNOS_MODULE_PATCH */
 
 		DHD_TRACE(("%s:Phys addr : reg space = %p base addr 0x"PRINTF_RESOURCE" \n",
 			__FUNCTION__, dhdpcie_info->regs, bar0_addr));
@@ -1833,6 +1851,15 @@ static irqreturn_t wlan_oob_irq(int irq, void *data)
 	DHD_TRACE(("%s: IRQ Triggered\n", __FUNCTION__));
 	bus = (dhd_bus_t *)data;
 	dhdpcie_oob_intr_set(bus, FALSE);
+#ifdef DHD_WAKE_STATUS
+#ifdef DHD_PCIE_RUNTIMEPM
+	/* This condition is for avoiding counting of wake up from Runtime PM */
+	if (bus->chk_pm)
+#endif /* DHD_PCIE_RUNTIMPM */
+	{
+		bcmpcie_set_get_wake(bus, 1);
+	}
+#endif /* DHD_WAKE_STATUS */
 #ifdef DHD_PCIE_RUNTIMEPM
 	dhdpcie_runtime_bus_wake(bus->dhd, FALSE, wlan_oob_irq);
 #endif /* DHD_PCIE_RUNTIMPM */

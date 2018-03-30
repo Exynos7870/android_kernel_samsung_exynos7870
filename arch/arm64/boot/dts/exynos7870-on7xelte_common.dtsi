@@ -9,8 +9,8 @@
  * published by the Free Software Foundation.
 */
 
-#include "exynos7870.dtsi"
 #include "exynos7870-rmem-3000MB.dtsi"
+#include "exynos7870.dtsi"
 
 / {
 	model = "Samsung ON7XELTE board based on Exynos7870";
@@ -517,6 +517,15 @@
 			samsung,pin-con-pdn = <3>;
 			samsung,pin-pud-pdn = <0>;
 			samsung,pin-val = <0>;
+		};
+	};
+	pinctrl@139B0000 {
+		bt_en: bt-en {
+			samsung,pins ="gpd4-1";
+			samsung,pin-function = <1>;
+			samsung,pin-pud = <1>;
+			samsung,pin-con-pdn = <3>;
+			samsung,pin-pud-pdn = <0>;
 		};
 	};
 
@@ -1317,14 +1326,18 @@
 		status = "okay";
 	};
 
-	isl98611 {
-		compatible = "i2c-gpio";
-		gpios = <&gpc9 0 0
-			&gpc9 1 0>;
-		i2c-gpio,delay-us = <5>;
-		#address-cells = <1>;
-		#size-cells = <0>;
+	pinctrl@139B0000 {
+		i2c8_bus: i2c8-bus {
+			samsung,pins = "gpc9-1", "gpc9-0";
+			samsung,pin-function = <2>;
+			samsung,pin-pud = <0>;
+			samsung,pin-drv = <0>;
+		};
+	};
+
+	i2c_8: i2c@13860000 {
 		status = "okay";
+		samsung,i2c-max-bus-freq = <400000>;
 
 		isl98611@29 {
 			compatible = "i2c,isl98611";
@@ -1350,7 +1363,7 @@
 	};
 
 	decon_board_list: decon_board_list {
-		dsim_set_panel_pre_power {
+		dsim_set_panel_power_early {
 			type = "regulator,enable", "delay,usleep";
 			delay = <5000 6000>;
 			regulator = "LCD_1P8";

@@ -77,9 +77,7 @@ static void s2mu004_muic_handle_attach(struct s2mu004_muic_data *muic_data,
 			muic_attached_dev_t new_dev, int adc, u8 vbvolt);
 static void s2mu004_muic_handle_detach(struct s2mu004_muic_data *muic_data);
 static void s2mu004_muic_detect_dev(struct s2mu004_muic_data *muic_data);
-#ifndef CONFIG_SEC_FACTORY
 static int s2mu004_muic_get_vbus_state(struct s2mu004_muic_data *muic_data);
-#endif
 static void s2mu004_muic_set_water_adc_ldo_wa(struct s2mu004_muic_data *muic_data, bool en);
 #if defined(CONFIG_CCIC_S2MU004)
 static int s2mu004_muic_refresh_adc(struct s2mu004_muic_data *muic_data);
@@ -1881,7 +1879,6 @@ EOS:
 }
 #endif
 
-#ifndef CONFIG_SEC_FACTORY
 static int s2mu004_muic_get_vbus_state(struct s2mu004_muic_data *muic_data)
 {
 	struct i2c_client *i2c = muic_data->i2c;
@@ -1893,7 +1890,6 @@ static int s2mu004_muic_get_vbus_state(struct s2mu004_muic_data *muic_data)
 	pr_info("[muic] %s vbus : (%d)\n", __func__, vbus);
 	return vbus;
 }
-#endif
 
 #if defined(CONFIG_CCIC_S2MU004)
 static int s2mu004_muic_set_rid_adc_en(struct s2mu004_muic_data *muic_data, bool en)
@@ -3087,7 +3083,7 @@ static irqreturn_t s2mu004_muic_irq_thread(int irq, void *data)
 	struct i2c_client *i2c = muic_data->i2c;
 	u8 reg_data = 0;
 	int irq_num = irq - muic_data->s2mu004_dev->irq_base;
-	int vbvolt, adc;
+	int reg_val, vbvolt, adc;
 #endif
 #endif
 
@@ -3161,9 +3157,13 @@ static irqreturn_t s2mu004_muic_irq_thread(int irq, void *data)
 			pr_info("%s WATER Toggling(acc),, adc : 0x%X\n", __func__, adc);
 		}
 
-		if (irq_num == S2MU004_MUIC_IRQ2_VBUS_OFF) {
+		if (irq_num == S2MU004_MUIC_IRQ2_VBUS_OFF
+			|| irq_num == S2MU004_MUIC_IRQ2_VBUS_ON) {
 			muic_notifier_detach_attached_dev(ATTACHED_DEV_WATER_MUIC);
 			muic_notifier_attach_attached_dev(ATTACHED_DEV_WATER_MUIC);
+#if defined(CONFIG_VBUS_NOTIFIER)
+			vbus_notifier_handle(vbvolt ? STATUS_VBUS_HIGH : STATUS_VBUS_LOW);
+#endif /* CONFIG_VBUS_NOTIFIER */
 		}
 		ccic_uevent_work(CCIC_NOTIFY_ID_WATER, 1);
 		pr_info("[muic] %s : skipped by water detected condition\n", __func__);
@@ -3314,8 +3314,17 @@ static void s2mu004_muic_water_detect_handler(struct work_struct *work)
 	struct s2mu004_muic_data *muic_data =
 		container_of(work, struct s2mu004_muic_data, water_detect_handler.work);
 	int wait_ret = 0, adc = 0;
+#if defined(CONFIG_VBUS_NOTIFIER)
+	int vbvolt = 0;
+#endif
 	mutex_lock(&muic_data->water_det_mutex);
 	wake_lock(&muic_data->water_wake_lock);
+
+	if (muic_data->water_status != S2MU004_WATER_MUIC_IDLE) {
+		pr_info("%s:%d exit detect, due to status mismatch\n", __func__, __LINE__);
+		goto EXIT_DETECT;
+	}
+
 	pr_info("%s:%d start\n", __func__, __LINE__);
 
 	s2mu004_muic_set_rid_adc_en(muic_data, false);
@@ -3346,6 +3355,10 @@ static void s2mu004_muic_water_detect_handler(struct work_struct *work)
 			msleep(WATER_DET_STABLE_DURATION_MS);
 			muic_data->water_status = S2MU004_WATER_MUIC_CCIC_STABLE;
 			muic_data->water_dry_status = S2MU004_WATER_DRY_MUIC_IDLE;
+#if defined(CONFIG_VBUS_NOTIFIER)
+			vbvolt = s2mu004_muic_get_vbus_state(muic_data);
+			vbus_notifier_handle(vbvolt ? STATUS_VBUS_HIGH : STATUS_VBUS_LOW);
+#endif /* CONFIG_VBUS_NOTIFIER */
 			pr_info("%s:%d WATER DETECT stabled adc : 0x%X\n", __func__, __LINE__, adc);
 		} else if (muic_data->water_status == S2MU004_WATER_MUIC_CCIC_INVALID) {
 			pr_info("%s: Not Water From CCIC.\n", __func__);
@@ -3355,6 +3368,7 @@ static void s2mu004_muic_water_detect_handler(struct work_struct *work)
 			s2mu004_muic_set_rid_adc_en(muic_data, true);
 		}
 	}
+EXIT_DETECT:
 	wake_unlock(&muic_data->water_wake_lock);
 	mutex_unlock(&muic_data->water_det_mutex);
 	return;
@@ -3366,12 +3380,13 @@ static void s2mu004_muic_water_dry_handler(struct work_struct *work)
 		container_of(work, struct s2mu004_muic_data, water_dry_handler.work);
 	int adc, i, wait_ret = 0;
 
-	if (muic_data->water_status != S2MU004_WATER_MUIC_CCIC_STABLE) {
-		pr_info("%s Invalid status for Dry check\n", __func__);
-		return;
-	}
 	mutex_lock(&muic_data->water_dry_mutex);
 	wake_lock(&muic_data->water_dry_wake_lock);
+
+	if (muic_data->water_status != S2MU004_WATER_MUIC_CCIC_STABLE) {
+		pr_info("%s Invalid status for Dry check\n", __func__);
+		goto EXIT_DRY_STATE;
+	}
 
 	pr_info("%s: Dry check start\n", __func__);
 #if defined(CONFIG_SUPPORT_RID_PERIODIC)
@@ -3426,6 +3441,7 @@ static void s2mu004_muic_water_dry_handler(struct work_struct *work)
 EXIT_DRY:
 	pr_info("%s:%d Exit DRY handler!!!\n", __func__, __LINE__);
 	s2mu004_muic_set_rid_int_mask_en(muic_data, false);
+EXIT_DRY_STATE:
 	wake_unlock(&muic_data->water_dry_wake_lock);
 	mutex_unlock(&muic_data->water_dry_mutex);
 
@@ -3961,6 +3977,11 @@ static int s2mu004_muic_probe(struct platform_device *pdev)
 
 	mutex_init(&muic_data->switch_mutex);
 	mutex_init(&muic_data->muic_mutex);
+#if defined(CONFIG_CCIC_S2MU004)
+	init_waitqueue_head(&muic_data->wait);
+	mutex_init(&muic_data->water_det_mutex);
+	mutex_init(&muic_data->water_dry_mutex);
+#endif
 	muic_data->is_factory_start = false;
 	muic_data->attached_dev = ATTACHED_DEV_UNKNOWN_MUIC;
 	muic_data->is_usb_ready = false;
@@ -4118,6 +4139,10 @@ static int s2mu004_muic_remove(struct platform_device *pdev)
 		disable_irq_wake(muic_data->i2c->irq);
 		s2mu004_muic_free_irqs(muic_data);
 		mutex_destroy(&muic_data->muic_mutex);
+#if defined(CONFIG_CCIC_S2MU004)
+		mutex_destroy(&muic_data->water_det_mutex);
+		mutex_destroy(&muic_data->water_dry_mutex);
+#endif
 		i2c_set_clientdata(muic_data->i2c, NULL);
 		kfree(muic_data);
 	}

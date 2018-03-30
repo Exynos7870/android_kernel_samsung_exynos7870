@@ -334,7 +334,7 @@ static int fb_notifier_callback(struct notifier_block *self,
 	case FB_EVENT_BLANK:
 		break;
 	default:
-		return 0;
+		return NOTIFY_DONE;
 	}
 
 	lcd = container_of(self, struct lcd_info, fb_notif_panel);
@@ -343,8 +343,8 @@ static int fb_notifier_callback(struct notifier_block *self,
 
 	dev_info(&lcd->ld->dev, "%s: %d\n", __func__, fb_blank);
 
-	if (evdata->info->node != 0)
-		return 0;
+	if (evdata->info->node)
+		return NOTIFY_DONE;
 
 	if (fb_blank == FB_BLANK_UNBLANK)
 		s6d7aa0_displayon(lcd);
@@ -459,7 +459,7 @@ static ssize_t hs_clk_show(struct device *dev,
 	struct lcd_info *lcd = dev_get_drvdata(dev);
 	struct dsim_device *dsim = NULL;
 
-	if (!lcd || lcd->state != PANEL_STATE_RESUMED) {
+	if (lcd->state != PANEL_STATE_RESUMED) {
 		dev_info(&lcd->ld->dev, "%s: lcd is not active state\n", __func__);
 		return -EPERM;
 	}
@@ -610,6 +610,8 @@ static void lcd_init_sysfs(struct lcd_info *lcd)
 	ret = sysfs_create_group(&lcd->ld->dev.kobj, &lcd_sysfs_attr_group);
 	if (ret < 0)
 		dev_err(&lcd->ld->dev, "failed to add lcd sysfs\n");
+
+	init_bl_curve_debugfs(lcd->bd, brightness_table, NULL);
 }
 
 
@@ -710,7 +712,6 @@ static int dsim_panel_probe(struct dsim_device *dsim)
 
 #if defined(CONFIG_EXYNOS_DECON_LCD_SYSFS)
 	lcd_init_sysfs(lcd);
-	init_bl_curve_debugfs(lcd->bd, brightness_table, NULL);
 #endif
 
 #if defined(CONFIG_EXYNOS_DECON_MDNIE_LITE)

@@ -202,3 +202,27 @@ config CAMERA_GRANDPPIRIS
         default n
         help
           This camera is grandppiris project.
+config CAMERA_ON7XREF
+        bool "This camera is on7xref project"
+        depends on VENDER_MCD
+        default n
+        help
+          This camera is on7xref project.
+config CAMERA_J7TOP
+        bool "This camera is j7top project"
+        depends on VENDER_MCD
+        default n
+        help
+          This camera is j7top project.
+config CAMERA_DEGASY18
+        bool "This camera is degasy18 project"
+        depends on VENDER_MCD
+        default n
+        help
+          This camera is degasy18 project.
+config CAMERA_J8
+        bool "This camera is j8 project"
+        depends on VENDER_MCD
+        default n
+        help
+          This camera is j8 project.

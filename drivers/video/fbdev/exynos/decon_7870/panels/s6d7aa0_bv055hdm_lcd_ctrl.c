@@ -598,6 +598,7 @@ static int lm3632_probe(struct i2c_client *client,
 	lcd->backlight_reset[1] = of_get_gpio(client->dev.of_node, 1);
 	lcd->backlight_reset[2] = of_get_gpio(client->dev.of_node, 2);
 
+	dev_info(&lcd->ld->dev, "%s: %s %s\n", __func__, dev_name(&client->adapter->dev), of_node_full_name(client->dev.of_node));
 exit:
 	return ret;
 }
@@ -852,10 +853,13 @@ static const struct attribute_group lcd_sysfs_attr_group = {
 static void lcd_init_sysfs(struct lcd_info *lcd)
 {
 	int ret = 0;
+	struct i2c_client *clients[] = {lcd->backlight_client, NULL};
 
 	ret = sysfs_create_group(&lcd->ld->dev.kobj, &lcd_sysfs_attr_group);
 	if (ret < 0)
 		dev_err(&lcd->ld->dev, "failed to add lcd sysfs\n");
+
+	init_bl_curve_debugfs(lcd->bd, NULL, clients);
 }
 
 
@@ -895,7 +899,6 @@ static int dsim_panel_probe(struct dsim_device *dsim)
 
 #if defined(CONFIG_EXYNOS_DECON_LCD_SYSFS)
 	lcd_init_sysfs(lcd);
-	init_bl_curve_debugfs(lcd->bd, NULL, &lcd->backlight_client);
 #endif
 
 	dev_info(&lcd->ld->dev, "%s: %s: done\n", kbasename(__FILE__), __func__);

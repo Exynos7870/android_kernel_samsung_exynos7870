@@ -7,8 +7,8 @@
  * published by the Free Software Foundation.
 */
 
-#include "exynos7870.dtsi"
 #include "exynos7870-rmem-3000MB.dtsi"
+#include "exynos7870.dtsi"
 
 / {
 	model = "Samsung A3XPREMIUM board based on Exynos7870";

@@ -313,6 +313,10 @@ static int mms_input_open(struct input_dev *dev)
 			disable_irq(info->client->irq);
 			mms_reboot(info);
 			enable_irq(info->client->irq);
+#ifdef CONFIG_VBUS_NOTIFIER
+			if (info->ta_stsatus)
+				mms_charger_attached(info, true);
+#endif
 		} else {
 			mms_enable(info);
 		}

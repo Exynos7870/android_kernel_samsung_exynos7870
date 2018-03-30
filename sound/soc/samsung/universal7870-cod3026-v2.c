@@ -28,6 +28,10 @@
 #if defined (CONFIG_FM_SI47XX)
 #include <linux/i2c/si47xx_common.h>
 #endif
+#ifdef CONFIG_SND_SOC_CS35L40
+#include <linux/mfd/cs35l40/registers.h>
+#include <linux/mfd/cs35l40/calibration.h>
+#endif
 
 #define CODEC_BFS_48KHZ		32
 #define CODEC_RFS_48KHZ		512
@@ -550,8 +554,27 @@ static int universal7870_set_bias_level(struct snd_soc_card *card,
 
 static int universal7870_late_probe(struct snd_soc_card *card)
 {
+#ifdef CONFIG_SND_SOC_CS35L40
+	struct snd_soc_codec *amp = NULL;
+	int ret;
+#endif
 
 	dev_dbg(card->dev, "%s called\n", __func__);
+
+#ifdef CONFIG_SND_SOC_CS35L40
+	if (card->rtd[0].num_codecs > 2) {
+		dev_info(card->dev, "%s: set sysclk for amp\n", __func__);
+		amp = card->rtd[0].codec_dais[2]->codec;
+		ret = snd_soc_codec_set_sysclk(amp, 0, 0, 3072000, SND_SOC_CLOCK_IN);
+		if (ret < 0)
+			dev_err(card->dev, "Failed to set amp sysclk\n");
+
+		snd_soc_dapm_ignore_suspend(&amp->dapm, "AMP SPK");
+		snd_soc_dapm_ignore_suspend(&amp->dapm, "AMP Playback");
+		snd_soc_dapm_sync(&amp->dapm);
+	}
+#endif
+
 	return 0;
 }
 
@@ -673,7 +696,6 @@ static int universal7870_linein_bias(struct snd_soc_dapm_widget *w,
 	return universal7870_configure_mic_bias(w->dapm->card, INT_LINEIN, event);
 }
 
-
 static int universal7870_request_ext_mic_bias_en_gpio(struct snd_soc_card *card)
 {
 	struct cod3026x_machine_priv *priv = snd_soc_card_get_drvdata(card);
@@ -707,6 +729,25 @@ static int universal7870_request_ext_mic_bias_en_gpio(struct snd_soc_card *card)
 	return 0;
 }
 
+#ifdef CONFIG_SND_SOC_CS35L40
+static int cs35l40_external_amp(struct snd_soc_dapm_widget *w,
+				struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_card *card = w->dapm->card;
+
+	dev_info(card->dev, "%s event : %d\n", __func__, event);
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		cs35l40_cal_apply();
+		break;
+	case SND_SOC_DAPM_PRE_PMU:
+		break;
+	}
+
+	return 0;
+};
+#endif
 
 static int universal7870_init_soundcard(struct snd_soc_card *card)
 {
@@ -738,6 +779,9 @@ const struct snd_soc_dapm_widget universal7870_dapm_widgets[] = {
 	SND_SOC_DAPM_MIC("MIC2 Bias", universal7870_mic2_bias),
 	SND_SOC_DAPM_MIC("MIC3 Bias", universal7870_mic3_bias),
 	SND_SOC_DAPM_MIC("LINEIN Bias", universal7870_linein_bias),
+#ifdef CONFIG_SND_SOC_CS35L40
+	SND_SOC_DAPM_SPK("SPEAKER", cs35l40_external_amp),
+#endif
 };
 
 const struct snd_soc_dapm_route universal7870_dapm_routes[] = {
@@ -752,6 +796,10 @@ const struct snd_soc_dapm_route universal7870_dapm_routes[] = {
 
 	{"LINEIN_PGA", NULL, "LINEIN Bias"},
 	{"LINEIN Bias", NULL, "IN4L" },
+
+#ifdef CONFIG_SND_SOC_CS35L40
+	{"SPEAKER", NULL, "AMP SPK" },
+#endif
 };
 
 static struct snd_soc_ops universal7870_aif1_ops = {
@@ -863,6 +911,11 @@ static struct snd_soc_dai_link_component codecs_ap0[] = {{
 	}, {
 		.dai_name = "cod3026x-aif",
 	},
+#ifdef CONFIG_SND_SOC_CS35L40
+	{
+		.dai_name = "cs35l40-pcm",
+	},
+#endif
 };
 
 static struct snd_soc_dai_link_component codecs_cp0[] = {{
@@ -871,6 +924,11 @@ static struct snd_soc_dai_link_component codecs_cp0[] = {{
 	}, {
 		.dai_name = "cod3026x-aif2",
 	},
+#ifdef CONFIG_SND_SOC_CS35L40
+	{
+		.dai_name = "cs35l40-pcm",
+	},
+#endif
 };
 
 static struct snd_soc_dai_link_component codecs_bt[] = {{
@@ -879,6 +937,11 @@ static struct snd_soc_dai_link_component codecs_bt[] = {{
 	}, {
 		.dai_name = "dummy-aif2",
 	},
+#ifdef CONFIG_SND_SOC_CS35L40
+	{
+		.dai_name = "dummy-aif2",
+	},
+#endif
 };
 
 static struct snd_soc_dai_link_component codecs_fm[] = {{
@@ -887,6 +950,11 @@ static struct snd_soc_dai_link_component codecs_fm[] = {{
 	}, {
 		.dai_name = "cod3026x-aif",
 	},
+#ifdef CONFIG_SND_SOC_CS35L40
+	{
+		.dai_name = "cs35l40-pcm",
+	},
+#endif
 };
 
 static struct snd_soc_dai_link_component codecs_ap1[] = {{
@@ -895,6 +963,11 @@ static struct snd_soc_dai_link_component codecs_ap1[] = {{
 	}, {
 		.dai_name = "dummy-aif2",
 	},
+#ifdef CONFIG_SND_SOC_CS35L40
+	{
+		.dai_name = "dummy-aif2",
+	},
+#endif
 };
 
 static struct snd_soc_dai_link_component codecs_cp1[] = {{
@@ -903,6 +976,11 @@ static struct snd_soc_dai_link_component codecs_cp1[] = {{
 	}, {
 		.dai_name = "dummy-aif2",
 	},
+#ifdef CONFIG_SND_SOC_CS35L40
+	{
+		.dai_name = "dummy-aif2",
+	},
+#endif
 };
 
 static struct snd_soc_dai_link universal7870_cod3025x_dai[] = {
@@ -1107,6 +1185,9 @@ static int universal7870_audio_probe(struct platform_device *pdev)
 	int n, ret;
 	struct device_node *np = pdev->dev.of_node;
 	struct device_node *cpu_np, *codec_np, *auxdev_np;
+#ifdef CONFIG_SND_SOC_CS35L40
+	struct device_node *amp_np;
+#endif
 	struct snd_soc_card *card = &universal7870_cod3025x_card;
 	struct cod3026x_machine_priv *priv;
 
@@ -1161,6 +1242,16 @@ static int universal7870_audio_probe(struct platform_device *pdev)
 		if (!universal7870_cod3025x_dai[n].platform_name)
 			universal7870_cod3025x_dai[n].platform_of_node = cpu_np;
 
+#ifdef CONFIG_SND_SOC_CS35L40
+		amp_np = of_parse_phandle(np, "samsung,audio-amp", n);
+		if (!amp_np) {
+			dev_err(&pdev->dev,
+				"Property 'samsung,audio-amp' missing\n");
+			universal7870_cod3025x_dai[n].num_codecs -= 1;
+		} else {
+			universal7870_cod3025x_dai[n].codecs[2].of_node = amp_np;
+		}
+#endif
 		card->num_links++;
 	}
 

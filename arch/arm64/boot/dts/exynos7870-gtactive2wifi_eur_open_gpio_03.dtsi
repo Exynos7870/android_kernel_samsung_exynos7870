@@ -18,6 +18,8 @@
 		PIN_IN(etc0-3, DOWN, LV1);	/* NC */
 
 		PIN_IN(gpa1-5, DOWN, LV1);	/* VTCAM_STBY */
+
+		PIN_IN(gpq0-1, DOWN, LV1);	/* NC */
 	};
 	/*
 	 * Note:

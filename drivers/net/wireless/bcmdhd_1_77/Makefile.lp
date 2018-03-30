@@ -89,6 +89,8 @@ endif
 	DHDCFLAGS += -DDHD_ALLOC_COHERENT_MEM_FROM_ATOMIC_POOL
 	# Enable Link down recovery
 	DHDCFLAGS += -DSUPPORT_LINKDOWN_RECOVERY
+	# Enable Dongle Isolation
+	DHDCFLAGS += -DDONGLE_ENABLE_ISOLATION
 	# Enable Firmware Coredump
 	DHDCFLAGS += -DDHD_FW_COREDUMP
         # Enable PKTID AUDIT
@@ -97,11 +99,11 @@ endif
 	# DHD_LB_RXP - Perform RX Packet processing in parallel
 	# DHD_LB_STATS - To display the Load Blancing statistics
 	DHDCFLAGS += -DDHD_LB -DDHD_LB_RXP -DDHD_LB_TXP -DDHD_LB_STATS
-	# Enable wakelock for legacy scan
-	DHDCFLAGS += -DDHD_USE_SCAN_WAKELOCK
 	# Extended HANG event with reason codes
 	DHDCFLAGS += -DDHD_USE_EXTENDED_HANG_REASON
 	DHDCFLAGS += -DDHD_RECOVER_TIMEOUT
+	# HEAP ASLR
+	DHDCFLAGS += -DBCM_ASLR_HEAP
 
 ifneq ($(CONFIG_SOC_EXYNOS8895),)
 	# Default Tx LB Enable
@@ -129,6 +131,8 @@ endif
 # Debug
 DHDCFLAGS += -DSIMPLE_MAC_PRINT
 DHDCFLAGS += -DDEBUGFS_CFG80211
+# Enable wakelock for legacy scan
+DHDCFLAGS += -DDHD_USE_SCAN_WAKELOCK
 # Enable wakelock debug function
 DHDCFLAGS += -DDHD_TRACE_WAKE_LOCK
 # Print out kernel panic point of file and line info when assertion happened
@@ -285,21 +289,13 @@ DHDCFLAGS += -DDHD_BLOB_EXISTENCE_CHECK
 # Random mac scan
 DHDCFLAGS += -DSUPPORT_RANDOM_MAC_SCAN
 
+# WLC_E_SET_SSID fail
+DHDCFLAGS += -DSET_SSID_FAIL_CUSTOM_RC=100
+
 # Android Version Check from Platform source
-CANDIDATE_VERSION_PATH := ./../../build/core ../../../../../../build/core out
-FOUND_VERSION_PATH := $(foreach dir,$(CANDIDATE_VERSION_PATH), $(wildcard $(dir)/version_defaults.mk))
-FOUND_VERSION_PATH := $(word 1, $(FOUND_VERSION_PATH))
-ifeq ($(FOUND_VERSION_PATH),)
-$(warning Not found Android version file. Set None)
-else
-# Extract version string and get major number
-ANDROID_PLATFORM_VERSION := $(shell grep "PLATFORM_VERSION := " $(FOUND_VERSION_PATH) | cut -d "=" -f 2 | cut -d "." -f 1 | sed 's/ //g')
-$(warning Android Platform Version : $(ANDROID_PLATFORM_VERSION))
-# If Android version lower than 7(Nougat) => Use Legacy File path
-ifeq ($(shell expr $(ANDROID_PLATFORM_VERSION) \< 7),1)
-DHDCFLAGS += -DDHD_LEGACY_FILE_PATH
-$(warning Will be use Legacy file path)
-endif
+ifneq ($(PLATFORM_VERSION),)
+MAJOR_VERSION := $(shell echo $(PLATFORM_VERSION) | cut -d "." -f 1)
+DHDCFLAGS += -DANDROID_PLATFORM_VERSION=$(MAJOR_VERSION)
 endif
 
 ##############################
@@ -431,37 +427,75 @@ endif
 ifeq ($(filter y,$(CONFIG_ARCH_MSM8996) $(CONFIG_ARCH_MSM8998) $(CONFIG_SOC_EXYNOS8890) $(CONFIG_SOC_EXYNOS8895) $(CONFIG_ARCH_TEGRA)),y)
 # Runtime PM
   DHDCFLAGS += -DDHD_PCIE_RUNTIMEPM -DMAX_IDLE_COUNT=11 -DCUSTOM_DHD_RUNTIME_MS=100
-# Enable Dongle Isolation
-  DHDCFLAGS += -DDONGLE_ENABLE_ISOLATION
 # Disable SOFTAP_SEND_HANGEVT
   DHDCFLAGS := $(filter-out -DSOFTAP_SEND_HANGEVT,$(DHDCFLAGS))
 # Enable LQCM
   DHDCFLAGS += -DSUPPORT_LQCM
 endif
+ifeq ($(filter y,$(CONFIG_ARCH_MSM8996) $(CONFIG_ARCH_MSM8998) $(CONFIG_SOC_EXYNOS8890) $(CONFIG_SOC_EXYNOS8895)), y)
+# DHD_LB_IRQSET - CPU migration by IRQ Affinity Set
+  DHDCFLAGS += -DDHD_LB_IRQSET
+endif
 # Generate .softap.info
-# DHDCFLAGS += -DGEN_SOFTAP_INFO_FILE
+  DHDCFLAGS += -DGEN_SOFTAP_INFO_FILE
 
-ifeq ($(CONFIG_WLAN_GREAT),y)
+ifneq ($(PLATFORM_VERSION),)
+# DREAM Android N OS should not use below features
+ifeq ($(shell expr $(PLATFORM_VERSION) \< 8.0),1)
+ifneq ($(filter y,$(CONFIG_WLAN_GREAT) $(CONFIG_SEC_GREATQLTE_PROJECT)),y)
+ DREAM_NOS_DISCARD_FEATURES := y
+endif
+endif
+
+# Feature Set used for GREAT N OS and Android O OS
+ifneq ($(DREAM_NOS_DISCARD_FEATURES),y)
 # Debugaility
   DHDCFLAGS += -DDEBUGABILITY
-  DHDCFLAGS += -DDBG_PKT_MON
+  DHDCFLAGS += -DDHD_PKT_LOGGING
 # Debug Wakeup pkt reason
   DHDCFLAGS += -DDHD_WAKE_STATUS -DDHD_WAKE_RX_STATUS -DDHD_WAKE_EVENT_STATUS
+  DHDCFLAGS += -DDHD_WAKEPKT_DUMP
 # To support CAC
   DHDCFLAGS += -DSUPPORT_SET_CAC
 # LAST ROAM EVENT LOG
   DHDCFLAGS += -DWL_LASTEVT
 # Use single nvram file
   DHDCFLAGS += -DDHD_USE_SINGLE_NVRAM_FILE
+#STAT REPORT
+#stat report shall be defined only if LINK STAT is defined
+  DHDCFLAGS += -DSTAT_REPORT
+#define temp static only when SDK doesn't support static memory for STAT REPORT
+#  DHDCFLAGS += -DSTAT_REPORT_TEMP_STATIC
+endif
+
+# RSSI_SUM_REPORT is used over Android O OS only
+ifeq ($(shell expr $(PLATFORM_VERSION) \>= 8.0),1)
+# RSSI Logging
+  DHDCFLAGS += -DSUPPORT_RSSI_SUM_REPORT
+# Enable NDO_CONFIG_SUPPORT in HAL
+  DHDCFLAGS += -DNDO_CONFIG_SUPPORT
+# changed assoc timeout
+  DHDCFLAGS += -DCUSTOM_ASSOC_TIMEOUT=20
+endif
+endif
+
+# Use Legacy dump path
+ifneq ($(USE_LEGACY_DUMP_PATH),)
+  DHDCFLAGS += -DDHD_COMMON_DUMP_PATH="\"/data/media/wifi/log/\""
+else
+  DHDCFLAGS += -DDHD_COMMON_DUMP_PATH="\"/data/log/wifi/\""
 endif
 
 ifeq ($(CONFIG_BCM4361),y)
   DHDCFLAGS += -DENABLE_INSMOD_NO_FW_LOAD
   DHDCFLAGS += -DUSE_LATE_INITCALL_SYNC
   DRIVER_TYPE = y
-else
-  DHDCFLAGS += -DEXYNOS_PCIE_MODULE_PATCH
 endif
+
+## Detect NON DMA M2M corruption
+#DHDCFLAGS += -DDHD_NON_DMA_M2M_CORRUPTION
+## Detect FW Memory Corruption
+#DHDCFLAGS += -DDHD_FW_MEM_CORRUPTION
 endif
 
 ifneq ($(CONFIG_BCM4359),)
@@ -538,8 +572,6 @@ ifeq ($(CONFIG_BCM4359),y)
   DHDCFLAGS += -DENABLE_INSMOD_NO_FW_LOAD
   DHDCFLAGS += -DUSE_LATE_INITCALL_SYNC
   DRIVER_TYPE = y
-else
-  DHDCFLAGS += -DEXYNOS_PCIE_MODULE_PATCH
 endif
 endif
 
@@ -727,8 +759,19 @@ endif
   DHDCFLAGS += -DCUSTOM_PSPRETEND_THR=30
 endif
 
+ifneq ($(CONFIG_BCM43456),)
+  DHDCFLAGS += -DBCM43456_CHIP
+endif
 ifneq ($(CONFIG_BCM43455),)
-  DHDCFLAGS += -DBCM43455_CHIP -DHW_OOB
+  DHDCFLAGS += -DBCM43455_CHIP
+endif
+ifneq ($(CONFIG_BCM43454),)
+  DHDCFLAGS += -DBCM43454_CHIP
+endif
+
+# BCM43454/43455/43456 common difine.
+ifneq ($(filter y,$(CONFIG_BCM43454) $(CONFIG_BCM43455) $(CONFIG_BCM43456)),$(filter m,$(CONFIG_BCM43454) $(CONFIG_BCM43455) $(CONFIG_BCM43456)))
+  DHDCFLAGS += -DHW_OOB
   DHDCFLAGS += -DSUPPORT_MULTIPLE_REVISION
   DHDCFLAGS += -DUSE_CID_CHECK
   DHDCFLAGS += -DENABLE_BCN_LI_BCN_WAKEUP
@@ -760,7 +803,7 @@ ifneq ($(CONFIG_BCM43455),)
   DHDCFLAGS += -DSUPPORT_2G_VHT
   DHDCFLAGS += -DSUPPORT_WL_TXPOWER
   DHDCFLAGS += -DBCMCCX_S69
-ifeq ($(CONFIG_BCM43455),y)
+ifeq ($(filter y,$(CONFIG_BCM43454) $(CONFIG_BCM43455) $(CONFIG_BCM43456)),y)
   DHDCFLAGS += -DENABLE_INSMOD_NO_FW_LOAD
   DHDCFLAGS += -DUSE_LATE_INITCALL_SYNC
   DRIVER_TYPE = y
@@ -777,67 +820,18 @@ endif
   DHDCFLAGS += -DCUSTOM_ROAM_TIME_THRESH_IN_SUSPEND=6000
   DHDCFLAGS += -DMAX_DTIM_ALLOWED_INTERVAL=925
 
+ifneq ($(filter y,$(CONFIG_BCM43455) $(CONFIG_BCM43456)),$(filter m,$(CONFIG_BCM43455) $(CONFIG_BCM43456)))
 # Enable Firmware Coredump
-  DHDCFLAGS += -DDHD_FW_COREDUMP
+    DHDCFLAGS += -DDHD_FW_COREDUMP
 ifeq ($(CONFIG_BCMDHD_PREALLOC_MEMDUMP),y)
-  DHDCFLAGS += -DDHD_USE_STATIC_MEMDUMP
+    DHDCFLAGS += -DDHD_USE_STATIC_MEMDUMP
 endif
 
 # Enable concate blob path
-  DHDCFLAGS += -DCONCATE_BLOB
+    DHDCFLAGS += -DCONCATE_BLOB
 # Generate .softap.info
-# DHDCFLAGS += -DGEN_SOFTAP_INFO_FILE
+    DHDCFLAGS += -DGEN_SOFTAP_INFO_FILE
 endif
-
-ifneq ($(CONFIG_BCM43454),)
-  DHDCFLAGS += -DBCM43454_CHIP -DHW_OOB
-  DHDCFLAGS += -DSUPPORT_MULTIPLE_REVISION
-  DHDCFLAGS += -DUSE_CID_CHECK
-  DHDCFLAGS += -DENABLE_BCN_LI_BCN_WAKEUP
-  DHDCFLAGS += -DUSE_SDIOFIFO_IOVAR
-
-  # tput enhancement
-  DHDCFLAGS += -DCUSTOM_GLOM_SETTING=8 -DCUSTOM_RXCHAIN=1
-  DHDCFLAGS += -DUSE_DYNAMIC_F2_BLKSIZE -DDYNAMIC_F2_BLKSIZE_FOR_NONLEGACY=128
-  DHDCFLAGS += -DBCMSDIOH_TXGLOM -DCUSTOM_TXGLOM=1 -DBCMSDIOH_TXGLOM_HIGHSPEED
-  DHDCFLAGS += -DDHDTCPACK_SUPPRESS
-  DHDCFLAGS += -DUSE_WL_TXBF
-  DHDCFLAGS += -DUSE_WL_FRAMEBURST
-  DHDCFLAGS += -DCUSTOM_FRAMEBURST_SET=1
-  DHDCFLAGS += -DRXFRAME_THREAD
-  DHDCFLAGS += -DCUSTOM_AMPDU_BA_WSIZE=64 -DCUSTOM_IBSS_AMPDU_BA_WSIZE=16
-  DHDCFLAGS += -DCUSTOM_DPC_CPUCORE=0
-  DHDCFLAGS += -DPROP_TXSTATUS_VSDB
-
-  # New Features
-  DHDCFLAGS += -DWL11U -DMFP
-  DHDCFLAGS += -DBCMCCX
-  DHDCFLAGS += -DWES_SUPPORT
-  DHDCFLAGS += -DOKC_SUPPORT
-  DHDCFLAGS += -DWLTDLS -DWLTDLS_AUTO_ENABLE
-  DHDCFLAGS += -DWLFBT
-  DHDCFLAGS += -DDHD_ENABLE_LPC
-  DHDCFLAGS += -DWLAIBSS
-  DHDCFLAGS += -DSUPPORT_LTECX
-  DHDCFLAGS += -DSUPPORT_2G_VHT
-  DHDCFLAGS += -DSUPPORT_WL_TXPOWER
-  DHDCFLAGS += -DBCMCCX_S69
-ifeq ($(CONFIG_BCM43454),y)
-  DHDCFLAGS += -DENABLE_INSMOD_NO_FW_LOAD
-  DHDCFLAGS += -DUSE_LATE_INITCALL_SYNC
-  DRIVER_TYPE = y
-endif
-  DHDCFLAGS += -DCUSTOM_PSPRETEND_THR=30
-  DHDCFLAGS += -DDHD_LOG_DUMP
-
-  # FCC power limit control on ch12/13.
-  #   DHDCFLAGS += -DFCC_PWR_LIMIT_2G
-  #
-  # Enable Roam time thresh
-  DHDCFLAGS += -DENABLE_MAX_DTIM_IN_SUSPEND
-  DHDCFLAGS += -DCUSTOM_BCN_TIMEOUT_IN_SUSPEND=10
-  DHDCFLAGS += -DCUSTOM_ROAM_TIME_THRESH_IN_SUSPEND=6000
-  DHDCFLAGS += -DMAX_DTIM_ALLOWED_INTERVAL=925
 endif
 
 ifneq ($(CONFIG_BCM4335),)
@@ -973,7 +967,7 @@ endif
   DHDCFLAGS :=$(filter-out -DDISABLE_11H_SOFTAP,$(DHDCFLAGS))
   DHDCFLAGS :=$(filter-out -DSUPPORT_P2P_GO_PS,$(DHDCFLAGS))
 # Generate .softap.info
-# DHDCFLAGS += -DGEN_SOFTAP_INFO_FILE
+  DHDCFLAGS += -DGEN_SOFTAP_INFO_FILE
 endif
 
 ifneq ($(CONFIG_BCM43012),)
@@ -1119,6 +1113,7 @@ endif
 ifneq ($(CONFIG_MACH_EXSOM7420),)
 DHDCFLAGS += -DDHD_OF_SUPPORT
 DHDCFLAGS += -DBCMPCIE_OOB_HOST_WAKE
+DHDCFLAGS += -DEXYNOS_PCIE_MODULE_PATCH
 obj-$(CONFIG_MACH_EXSOM7420) += dhd_custom_exynos.o dhd_custom_memprealloc.o
 endif
 ifneq ($(CONFIG_SOC_EXYNOS8890),)
@@ -1129,10 +1124,10 @@ DHDCFLAGS += -DDHD_OF_SUPPORT
 DHDCFLAGS += -DBCMPCIE_OOB_HOST_WAKE
 endif
 ifneq ($(CONFIG_MACH_UNIVERSAL5430),)
-obj-$(CONFIG_MACH_UNIVERSAL5430) += dhd_custom_exynos.o
+DHDCFLAGS += -DDHD_OF_SUPPORT
 endif
 ifneq ($(CONFIG_MACH_UNIVERSAL5422),)
-obj-$(CONFIG_MACH_UNIVERSAL5422) += dhd_custom_exynos.o
+DHDCFLAGS += -DDHD_OF_SUPPORT
 endif
 ifneq ($(CONFIG_ARCH_MSM8994),)
 DHDCFLAGS += -DDHD_OF_SUPPORT
@@ -1205,8 +1200,8 @@ DHDOFILES := dhd_pno.o dhd_common.o dhd_ip.o dhd_custom_gpio.o dhd_custom_sec.o 
 	bcmutils.o bcmwifi_channels.o hndpmu.o linux_osl.o sbutils.o siutils.o \
 	wl_android.o wl_cfg80211.o wl_cfgp2p.o wl_cfg_btcoex.o wldev_common.o \
 	wl_linux_mon.o wl_roam.o dhd_linux_platdev.o dhd_linux_wq.o wl_cfg_btcoex.o \
-	hnd_pktq.o hnd_pktpool.o dhd_debug.o dhd_debug_linux.o dhd_custom_cis.o dhd_mschdbg.o
-
+	hnd_pktq.o hnd_pktpool.o dhd_debug.o dhd_debug_linux.o dhd_custom_cis.o dhd_mschdbg.o \
+	dhd_pktlog.o
 
 ifeq ($(BUS_IFACE_SDIO),y)
 DHDOFILES += bcmsdh.o bcmsdh_linux.o bcmsdh_sdmmc.o bcmsdh_sdmmc_linux.o
@@ -1233,6 +1228,10 @@ endif
 # Once RB gets ship it, will revert this change.
 ifeq ($(CONFIG_WL_NAN),y)
 # DHDOFILES += wl_cfgnan.o bcmxtlv.o
+endif
+
+ifneq ($(filter -DSTAT_REPORT,$(DHDCFLAGS)),)
+DHDOFILES += wl_statreport.o
 endif
 
 dhd-y := $(DHDOFILES)

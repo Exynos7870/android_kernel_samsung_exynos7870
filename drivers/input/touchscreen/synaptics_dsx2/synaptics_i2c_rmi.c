@@ -436,29 +436,8 @@ static int synaptics_rmi4_i2c_read(struct synaptics_rmi4_data *rmi4_data,
 		goto exit;
 	}
 
-	for (retry = 0; retry < SYN_I2C_RETRY_TIMES; retry++) {
-		if (i2c_transfer(rmi4_data->i2c_client->adapter, msg, 3) == 3) {
-			retval = length;
-			break;
-		}
-		input_err(true, &rmi4_data->i2c_client->dev, "%s: I2C retry %d\n",
-				__func__, retry + 1);
-		msleep(20);
-
-		if (retry == SYN_I2C_RETRY_TIMES / 2) {
-			synaptics_rmi4_i2c_check_addr(rmi4_data);
-			msg[0].addr = rmi4_data->i2c_client->addr;
-			msg[1].addr = rmi4_data->i2c_client->addr;
-			msg[2].addr = rmi4_data->i2c_client->addr;
-		}
-	}
-
-	if (retry == SYN_I2C_RETRY_TIMES) {
-		input_err(true, &rmi4_data->i2c_client->dev,
-				"%s: I2C read over retry limit\n",
-				__func__);
-		retval = -EIO;
-	}
+	if (i2c_transfer(rmi4_data->i2c_client->adapter, msg, 3) == 3)
+		retval = length;
 
 exit:
 	mutex_unlock(&(rmi4_data->rmi4_io_ctrl_mutex));
@@ -519,29 +498,8 @@ static int synaptics_rmi4_i2c_write(struct synaptics_rmi4_data *rmi4_data,
 	buf[0] = addr & MASK_8BIT;
 	memcpy(&buf[1], &data[0], length);
 
-	for (retry = 0; retry < SYN_I2C_RETRY_TIMES; retry++) {
-		if (i2c_transfer(rmi4_data->i2c_client->adapter, msg, 2) == 2) {
-			retval = length;
-			break;
-		}
-		input_err(true, &rmi4_data->i2c_client->dev,
-				"%s: I2C retry %d\n",
-				__func__, retry + 1);
-
-		msleep(20);
-		if (retry == SYN_I2C_RETRY_TIMES / 2) {
-			synaptics_rmi4_i2c_check_addr(rmi4_data);
-			msg[0].addr = rmi4_data->i2c_client->addr;
-			msg[1].addr = rmi4_data->i2c_client->addr;
-		}
-	}
-
-	if (retry == SYN_I2C_RETRY_TIMES) {
-		input_err(true, &rmi4_data->i2c_client->dev,
-				"%s: I2C write over retry limit\n",
-				__func__);
-		retval = -EIO;
-	}
+	if (i2c_transfer(rmi4_data->i2c_client->adapter, msg, 2) == 2)
+		retval = length;
 
 exit:
 	mutex_unlock(&(rmi4_data->rmi4_io_ctrl_mutex));
@@ -4238,13 +4196,13 @@ static int synaptics_rmi4_start_device(struct synaptics_rmi4_data *rmi4_data)
 			}
 		}
 #endif	//CONFIG_SEC_FACTORY			
-
 	retval = synaptics_rmi4_reinit_device(rmi4_data);
 	if (retval < 0) {
 		input_err(true, &rmi4_data->i2c_client->dev,
 				"%s: Failed to reinit device\n",
 				__func__);
 	}
+
 #ifdef USE_ACTIVE_REPORT_RATE
 	if (rmi4_data->tsp_change_report_rate != SYNAPTICS_RPT_RATE_90HZ){
 		input_err(true, &rmi4_data->i2c_client->dev,

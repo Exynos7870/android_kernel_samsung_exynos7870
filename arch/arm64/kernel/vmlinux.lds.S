@@ -11,8 +11,14 @@
 
 #include "image.h"
 
+/* .exit.text needed in case of alternative patching */
+#if (defined(CONFIG_GENERIC_BUG))
+#define ARM_EXIT_KEEP(x)        x
+#define ARM_EXIT_DISCARD(x)
+#else
 #define ARM_EXIT_KEEP(x)
 #define ARM_EXIT_DISCARD(x)	x
+#endif
 
 OUTPUT_ARCH(aarch64)
 ENTRY(_text)
@@ -69,11 +75,30 @@ SECTIONS
 		. = ALIGN(16);
 		*(.got)			/* Global offset table		*/
 	}
+	. = ALIGN(PAGE_SIZE);
+#ifdef CONFIG_TIMA_RKP
+	. = ALIGN(PAGE_SIZE);
+	.rkp.bitmap : {
+		rkp_pgt_bitmap = .;
+	}
+	.rkp.dblmap : {
+		rkp_map_bitmap = .;
+	}
+
+	.vmm : { *(.vmm*) }
+	. = ALIGN(PAGE_SIZE);
+	idmap_pg_dir = .;
+	. += IDMAP_DIR_SIZE;
+	. = ALIGN(PAGE_SIZE);
+	swapper_pg_dir = .;
+	. += SWAPPER_DIR_SIZE;
+	. = ALIGN(PAGE_SIZE);
+#endif
+	_etext = .;			/* End of text section */
 
 	RO_DATA(PAGE_SIZE)
 	EXCEPTION_TABLE(8)
 	NOTES
-	_etext = .;			/* End of text and rodata section */
 
 	. = ALIGN(PAGE_SIZE);
 	__init_begin = .;
@@ -117,13 +142,13 @@ SECTIONS
 	_edata = .;
 
 	BSS_SECTION(0, 0, 0)
-
+#ifndef CONFIG_TIMA_RKP
 	. = ALIGN(PAGE_SIZE);
 	idmap_pg_dir = .;
 	. += IDMAP_DIR_SIZE;
 	swapper_pg_dir = .;
 	. += SWAPPER_DIR_SIZE;
-
+#endif
 	_end = .;
 
 	STABS_DEBUG

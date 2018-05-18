@@ -1701,6 +1701,10 @@ struct net_device {
 	struct lock_class_key *qdisc_tx_busylock;
 	int group;
 	struct pm_qos_request	pm_qos_req;
+
+#ifdef CONFIG_NETPM
+	bool netpm_use;
+#endif
 };
 #define to_net_dev(d) container_of(d, struct net_device, dev)
 
@@ -1894,8 +1898,8 @@ struct napi_gro_cb {
 	/* Used in ipv6_gro_receive() and foo-over-udp */
 	u16	proto;
 
-	/* Used in udp_gro_receive */
-	u8	udp_mark:1;
+	/* Used in tunnel GRO receive */
+	u8	encap_mark:1;
 
 	/* GRO checksum is valid */
 	u8	csum_valid:1;

@@ -11,7 +11,7 @@ obj-$(CONFIG_AIRO)		+= airo.o
 obj-$(CONFIG_AIRO_CS)		+= airo_cs.o airo.o
 
 obj-$(CONFIG_ATMEL)             += atmel.o
-obj-$(CONFIG_PCI_ATMEL)         += atmel_pci.o 
+obj-$(CONFIG_PCI_ATMEL)         += atmel_pci.o
 obj-$(CONFIG_PCMCIA_ATMEL)      += atmel_cs.o
 
 obj-$(CONFIG_AT76C50X_USB)      += at76c50x-usb.o
@@ -55,8 +55,32 @@ obj-$(CONFIG_WL_TI)	+= ti/
 
 obj-$(CONFIG_MWIFIEX)	+= mwifiex/
 
+ifneq ($(CONFIG_BCM4343),)
+#obj-$(CONFIG_BCM4343)	+= bcmdhd/
+#obj-$(CONFIG_BCM4343)	+= bcmdhd/dhd_custom_exynos.o
+obj-$(CONFIG_BCM4343)	+= bcmdhd_1_77/
+obj-$(CONFIG_BCM4343)	+= bcmdhd_1_77/dhd_custom_exynos.o
+obj-$(CONFIG_BCM4343)	+= bcmdhd_1_77/dhd_custom_memprealloc.o
+endif
+ifneq ($(CONFIG_BCM43454),)
+obj-$(CONFIG_BCM43454)	+= bcmdhd_1_77/
+obj-$(CONFIG_BCM43454)	+= bcmdhd_1_77/dhd_custom_exynos.o
+obj-$(CONFIG_BCM43454)	+= bcmdhd_1_77/dhd_custom_memprealloc.o
+endif
+ifneq ($(CONFIG_BCM43455),)
+obj-$(CONFIG_BCM43455)	+= bcmdhd_1_77/
+obj-$(CONFIG_BCM43455)	+= bcmdhd_1_77/dhd_custom_exynos.o
+obj-$(CONFIG_BCM43455)	+= bcmdhd_1_77/dhd_custom_memprealloc.o
+endif
+ifneq ($(CONFIG_BCM43456),)
+obj-$(CONFIG_BCM43456)	+= bcmdhd_1_77/
+obj-$(CONFIG_BCM43456)	+= bcmdhd_1_77/dhd_custom_exynos.o
+obj-$(CONFIG_BCM43456)	+= bcmdhd_1_77/dhd_custom_memprealloc.o
+endif
+
 obj-$(CONFIG_BRCMFMAC)	+= brcm80211/
 obj-$(CONFIG_BRCMSMAC)	+= brcm80211/
-
+obj-$(CONFIG_CNSS_SDIO)	+= cnss/cnss_sdio.o
+obj-$(CONFIG_WCNSS_MEM_PRE_ALLOC) += cnss_prealloc.o
 obj-$(CONFIG_CW1200)	+= cw1200/
 obj-$(CONFIG_RSI_91X)	+= rsi/

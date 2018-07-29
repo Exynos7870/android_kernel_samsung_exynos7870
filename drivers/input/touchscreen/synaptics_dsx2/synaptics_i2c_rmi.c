@@ -4196,12 +4196,6 @@ static int synaptics_rmi4_start_device(struct synaptics_rmi4_data *rmi4_data)
 			}
 		}
 #endif	//CONFIG_SEC_FACTORY			
-	retval = synaptics_rmi4_reinit_device(rmi4_data);
-	if (retval < 0) {
-		input_err(true, &rmi4_data->i2c_client->dev,
-				"%s: Failed to reinit device\n",
-				__func__);
-	}
 
 #ifdef USE_ACTIVE_REPORT_RATE
 	if (rmi4_data->tsp_change_report_rate != SYNAPTICS_RPT_RATE_90HZ){
@@ -4213,6 +4207,8 @@ static int synaptics_rmi4_start_device(struct synaptics_rmi4_data *rmi4_data)
 	enable_irq(rmi4_data->i2c_client->irq);
 
 	input_info(true, &rmi4_data->i2c_client->dev, "%s\n", __func__);
+
+	mutex_unlock(&rmi4_data->rmi4_device_mutex);
 
 out:
 	mutex_unlock(&rmi4_data->rmi4_device_mutex);
